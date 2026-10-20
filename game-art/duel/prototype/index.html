@@ -134,7 +134,7 @@ dd { margin: 0; font-family: var(--mono); font-size: 12px; font-variant-numeric:
   </div>
 </div>
 
-<script src="assets/nabo_placeholder.js"></script>
+<script src="assets/nabo_duel_sprites.js"></script>
 <script src="duel_model.js"></script>
 <script src="sim.js"></script>
 <script>
@@ -168,9 +168,10 @@ const goTimes = { A: [], B: [] };
 
 // ---------- 精灵 ----------
 const SPR = {};
-for (const [size, anims] of Object.entries(window.NABO_SPRITES || {}))
-  for (const [key, sheet] of Object.entries(anims)) { const im = new Image(); im.src = sheet.img; SPR[size + '/' + key] = { sheet, im, size }; }
-const ANIM = { idle: 'large/idle_empty', enter: 'large/cover_in', smug: 'large/trophy', splashed: 'small/surprise', laugh: 'small/point_l', draw: 'small/slam', twitch: 'small/shake' };
+// 工牌上实际显示的 64 色帧（tools/generate_duel_sprites.py 生成），锚点是腰线
+for (const [key, sheet] of Object.entries(window.NABO_DUEL_SPRITES || {})) { const im = new Image(); im.src = sheet.img; SPR[key] = { sheet, im }; }
+const animLen = a => { const s = SPR[a] && SPR[a].sheet; return s ? s.n / s.fps * 1000 : 0; };
+const WAIST = 262;   // NABO 的腰线压在前景街沿上
 
 // ---------- 画面 ----------
 function mkView(cv) { return { cv, ctx: cv.getContext('2d'), anim: 'idle', since: 0 }; }
@@ -203,14 +204,14 @@ function drawBackdrop(ctx, t) {
 
 function nabo(v, ctx, t, anim, cx, footY, h, o = {}) {
   if (anim !== v.anim) { v.anim = anim; v.since = t; }
-  const sp = SPR[ANIM[anim]];
+  const sp = SPR[anim];
   if (!sp || !sp.im.complete || !sp.im.naturalWidth) { ctx.fillStyle = C.town; rr(ctx, cx - 40, footY - h, 80, h, 30); ctx.fill(); return; }
-  const { sheet, im, size } = sp, f = Math.floor((t - v.since) / 1000 * sheet.fps);
+  const { sheet, im } = sp, f = Math.floor((t - (o.since ?? v.since)) / 1000 * sheet.fps);
   const i = sheet.loop ? f % sheet.n : Math.min(sheet.n - 1, f);
-  const k = h / (size === 'large' ? 150 : 72);
+  const k = h / 128;
   // 脚下的玩家色光圈 = 将来的头巾换色
   if (o.color) { ctx.fillStyle = o.color; ctx.globalAlpha = .55; ctx.beginPath(); ctx.ellipse(cx, footY + 2, 46, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
-  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingEnabled = k !== 1;
   ctx.drawImage(im, i * sheet.w, 0, sheet.w, sheet.h, cx + sheet.ox * k + (o.dx || 0), footY + sheet.oy * k, sheet.w * k, sheet.h * k);
 }
 
@@ -246,8 +247,15 @@ function scoreBar(ctx, b) {
 
 function drawReveal(ctx, v, b, t, c) {
   const m = b.match, [mc, oc] = colors(b), out = c.outcome;
-  const anim = out === 'win' ? 'splashed' : out === 'lose' ? (c.me.k === 'foul' ? 'laugh' : 'smug') : 'idle';
-  nabo(v, ctx, t, anim, 120, 236, 150, { color: oc });
+  // 你赢：对面被呲；你输：对面先拔枪再得意；你抢跑：对面笑你；都没按：打哈欠
+  const t0 = c.resolvedAt;
+  let anim = 'stance', since;
+  if (out === 'win') anim = 'splashed';
+  else if (out === 'lose' && c.me.k === 'foul') anim = 'laugh';
+  else if (out === 'lose') { anim = t - t0 < animLen('draw') ? 'draw' : 'smug'; since = anim === 'draw' ? t0 : t0 + animLen('draw'); }
+  else if (c.me.k === 'none' && c.opp.k === 'none') anim = 'sleepy';
+  else if (c.me.k === 'foul') anim = 'laugh';
+  nabo(v, ctx, t, anim, 120, WAIST, 128, { color: oc, since });
   if (out === 'win') {   // 对面被呲了一脸
     ctx.fillStyle = C.water;
     for (let i = 0; i < 14; i++) { const a = i * 2.4, d = 30 + (i * 13) % 34 + Math.min(20, (t - v.since) / 30); ctx.globalAlpha = .85; ctx.beginPath(); ctx.arc(120 + Math.cos(a) * d, 120 + Math.sin(a) * d * .8, 3 + i % 3, 0, 7); ctx.fill(); }
@@ -258,15 +266,15 @@ function drawReveal(ctx, v, b, t, c) {
     ctx.globalAlpha = 1;
   }
   const title = out === 'win' ? '你赢了这局' : out === 'lose' ? (c.me.k === 'foul' ? '你抢跑了' : '慢了一步') : (c.me.k === 'foul' ? '都太急了' : c.me.k === 'none' ? '都睡着了？' : '一模一样！');
-  text(ctx, title, 120, 270, { size: 24, weight: 900, color: out === 'win' ? C.yellow : out === 'lose' ? C.fg : C.brass, stroke: 5 });
+  text(ctx, title, 120, 96, { size: 24, weight: 900, color: out === 'win' ? C.yellow : out === 'lose' ? C.fg : C.brass, stroke: 5 });
   ctx.fillStyle = C.shade; rr(ctx, 16, 280, 208, 34, 8); ctx.fill();
   ctx.fillStyle = mc; ctx.fillRect(24, 290, 4, 14);
   const lab = (x, y) => x.k === 'none' && y.k === 'hit' ? '慢了' : fmt(x);   // 对手先出手后被锁定的“没按”
   text(ctx, '你 ' + lab(c.me, c.opp), 34, 302, { size: 13, align: 'left', font: F_MONO });
   ctx.fillStyle = oc; ctx.fillRect(212, 290, 4, 14);
   text(ctx, lab(c.opp, c.me) + ' 对手', 206, 302, { size: 13, align: 'right', font: F_MONO, color: C.muted });
-  if (c.newBest) pill(ctx, '新纪录 ' + fmt(c.me), 60, C.yellow);
-  if (out === 'replay') pill(ctx, m.attempt > 1 ? `重来（第 ${m.attempt} 次）` : '本局不计分', 60, C.brass);
+  if (c.newBest) pill(ctx, '新纪录 ' + fmt(c.me), 56, C.yellow);
+  if (out === 'replay') pill(ctx, m.attempt > 1 ? `重来（第 ${m.attempt} 次）` : '本局不计分', 56, C.brass);
 }
 
 function render(key, b, n) {
@@ -275,7 +283,7 @@ function render(key, b, n) {
   drawBackdrop(ctx, t);
   const s = b.scene;
   if (s === 'cover') {
-    nabo(v, ctx, t, 'idle', 120, 196, 120, {});
+    nabo(v, ctx, t, 'stance', 120, 192, 100, {});
     ctx.fillStyle = C.shade; ctx.fillRect(0, 0, 240, 320); ctx.globalAlpha = 1;
     text(ctx, 'DUEL', 120, 58, { size: 40, font: F_DISP, weight: 400, color: C.brass, stroke: 6 });
     text(ctx, '对 决', 120, 86, { size: 18, weight: 900 });
@@ -318,7 +326,7 @@ function render(key, b, n) {
     const ph = s === 'duel' ? b.phase(t) : 'wait';
     if (s === 'end') {
       const won = m.me > m.opp;
-      nabo(v, ctx, t, won ? 'splashed' : 'smug', 120, 236, 150, { color: oc });
+      nabo(v, ctx, t, won ? 'splashed' : 'smug', 120, WAIST, 128, { color: oc });
       ctx.fillStyle = C.shade; ctx.fillRect(0, 0, 240, 320);
       text(ctx, won ? '你赢下了这场' : `${m.oppName} 赢了`, 120, 70, { size: 22, weight: 900, color: won ? C.yellow : C.fg, stroke: 5 });
       text(ctx, `${m.me} : ${m.opp}`, 120, 128, { size: 44, font: F_DISP, weight: 400, color: C.brass, stroke: 6 });
@@ -327,34 +335,34 @@ function render(key, b, n) {
       if (m.oppNext && !m.wantNext) pill(ctx, '对手想再来一场', 290, C.yellow);
     } else if (ph === 'wait') {
       if (m.last) drawReveal(ctx, v, b, t, m.last);
-      else { nabo(v, ctx, t, 'idle', 120, 236, 150, { color: oc }); pill(ctx, m.solo ? '准备开始' : '对时中…', 280, C.muted); }
+      else { nabo(v, ctx, t, 'stance', 120, WAIST, 128, { color: oc }); pill(ctx, m.solo ? '准备开始' : '对时中…', 296, C.muted); }
     } else if (ph === 'reveal') {
       drawReveal(ctx, v, b, t, c);
     } else {
       // 准备 / 对峙 / 拔
-      let anim = ph === 'ready' && t - c.ready < 750 ? 'enter' : 'idle', dx = 0;
+      let anim = ph === 'ready' && t - c.ready < animLen('enter') ? 'enter' : 'stance', dx = 0;
       if (c.opp && c.opp.k === 'hit') anim = 'draw';
       let fake = null;
       for (const f of c.fakes) if (t >= f.at && t < f.at + D.T.FAKE_SHOW) fake = f;
       if (fake && fake.kind === 'twitch') dx = ((t >> 4) & 1) ? 3 : -3;
-      nabo(v, ctx, t, anim, 120, 236, 150, { color: oc, dx });
-      if (ph === 'ready') text(ctx, '准备……', 120, 282, { size: 22, weight: 900, stroke: 5 });
-      if (ph === 'ready') pill(ctx, `第 ${c.round} 局 · ${BO[m.bo]}`, 60, C.muted);
+      nabo(v, ctx, t, anim, 120, WAIST, 128, { color: oc, dx, since: anim === 'enter' ? c.ready : undefined });
+      if (ph === 'ready') text(ctx, '准备……', 120, 96, { size: 24, weight: 900, stroke: 5 });
+      if (ph === 'ready') pill(ctx, `第 ${c.round} 局 · ${BO[m.bo]}`, 296, C.muted);
       if (ph === 'standoff') {
-        text(ctx, '· · ·', 120, 282, { size: 18, color: C.muted, weight: 400 });
-        if (fake && fake.kind === 'text') text(ctx, '拔？', 120, 110, { size: 54, weight: 900, color: C.yellow, stroke: 7 });
+        text(ctx, '· · ·', 120, 96, { size: 18, color: C.muted, weight: 400 });
+        if (fake && fake.kind === 'text') text(ctx, '拔？', 120, 100, { size: 54, weight: 900, color: C.yellow, stroke: 7 });
         if (fake && fake.kind === 'tumble') {
-          const p = (t - fake.at) / D.T.FAKE_SHOW, x = -20 + p * 280, y = 250 - Math.abs(Math.sin(p * 9)) * 14;
+          const p = (t - fake.at) / D.T.FAKE_SHOW, x = -20 + p * 280, y = 276 - Math.abs(Math.sin(p * 9)) * 14;
           ctx.strokeStyle = '#c99a5a'; ctx.lineWidth = 2;
           for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(x, y, 9 + i % 2 * 3, i + p * 12, i + 2.5 + p * 12); ctx.stroke(); }
         }
       }
       if (ph === 'go') {
         inverted = !c.me || c.me.k === 'hit';   // 固件：goAt 时发 INVON，本局结果出来时 INVOFF
-        text(ctx, '拔！', 120, 120, { size: 72, weight: 900, color: C.fg, stroke: 8 });
+        text(ctx, '拔！', 120, 104, { size: 72, weight: 900, color: C.fg, stroke: 8 });
       }
       if (c.me) {
-        if (c.me.k === 'foul') { ctx.fillStyle = 'rgba(226,87,76,.35)'; ctx.fillRect(0, 0, 240, 320); text(ctx, '抢跑！', 120, 120, { size: 52, weight: 900, color: C.bad, stroke: 7 }); }
+        if (c.me.k === 'foul') { ctx.fillStyle = 'rgba(226,87,76,.35)'; ctx.fillRect(0, 0, 240, 320); text(ctx, '抢跑！', 120, 100, { size: 52, weight: 900, color: C.bad, stroke: 7 }); }
         pill(ctx, (c.me.k === 'hit' ? '你 ' + fmt(c.me) : fmt(c.me)) + ' · 等对手…', 304, C.fg);
       }
     }

@@ -16,7 +16,7 @@ const T = {
   LEAD: 400,              // 房主发 ROUND 到准备开始之间留的余量
   LATE_MIN: 200,          // 客人收到 ROUND 时离拔枪不到这么久 → LATE
   TIMEOUT: 2000,          // 拔枪后多久没按算“没按”
-  REVEAL: 2600,           // 每局结果展示
+  REVEAL: 3200,           // 每局结果展示（输了：对面拔枪 1.5 s + 得意 1.5 s）
   HELLO: 300, PEER_EXPIRE: 1500,
   BEAT: 250, DEAD: 3000,
   RETX: 60, GIVEUP: 2000,
@@ -48,7 +48,7 @@ function mulberry32(a) {
 function normalInt(rng, mean, sd) {
   let s = 0;
   for (let i = 0; i < 12; i++) s += rng() % 1000;
-  return mean + Math.round((s - 6000 + 6) * sd / 1000);
+  return mean + Math.floor(((s - 6000 + 6) * sd + 500) / 1000);   // 四舍五入（.5 向上），固件用同样的整数除法
 }
 
 // 一局（一次尝试）的时间表，完全由种子和 goAt 决定，两台各算一遍结果相同
@@ -335,7 +335,7 @@ class DuelBadge {
   _pkt_PONG(from, p) {
     const m = this.match;
     if (!m || !m.host || m.syncDone !== null || !m.pings) return;
-    const rtt = this.t - p.t1, off = p.t2 - Math.round((p.t1 + this.t) / 2);
+    const rtt = this.t - p.t1, off = p.t2 - Math.floor((p.t1 + this.t + 1) / 2);
     if (!m.best || rtt < m.best.rtt) m.best = { rtt, off };
   }
 
@@ -452,6 +452,7 @@ class DuelBadge {
     const c = this.cur, m = this.match;
     if (c.resolved) return;
     c.resolved = true;
+    c.resolvedAt = this.t;
     const out = judge(c.me, c.opp);
     c.outcome = out;
     if (out === 'win') m.me++;
