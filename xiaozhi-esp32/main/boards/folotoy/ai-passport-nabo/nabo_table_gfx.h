@@ -35,6 +35,7 @@ typedef enum {
     NTG_TRI,      // small up / down arrow
     NTG_GLOW,     // soft round highlight behind a die
     NTG_DUSK,     // NABO DUEL: dusk sky, town silhouette, street (nabo_table_shapes.c)
+    NTG_BITMAP,   // immutable native RGB565 image in flash (offline launcher portrait)
 } ntg_kind_t;
 
 typedef struct {
@@ -51,6 +52,7 @@ typedef struct {
         struct { int16_t cx, by; uint8_t alpha; } cup;   // centre x, bottom y
         struct { int16_t cx, cy; uint16_t color; uint8_t up, size; } tri;
         struct { int16_t cx, cy, r; uint16_t color; } glow;
+        struct { const uint16_t *pixels; int16_t w; } bitmap;
     } u;
 } ntg_op_t;
 
@@ -90,6 +92,7 @@ bool ntg_card(ntg_t *g, int x, int y, int w, int h, int rank, int suit, bool fac
 bool ntg_die(ntg_t *g, int value, int cx, int cy, int half, int yaw_deg, bool dim);
 bool ntg_glow(ntg_t *g, int cx, int cy, int r, uint16_t color);
 bool ntg_dusk(ntg_t *g);
+bool ntg_bitmap(ntg_t *g, const uint16_t *pixels, int x, int y, int w, int h);
 bool ntg_sprite(ntg_t *g, int anim, int frame, int ax, int ay);
 bool ntg_cup(ntg_t *g, int cx, int by, int alpha);
 bool ntg_tri(ntg_t *g, int cx, int cy, int size, bool up, uint16_t color);

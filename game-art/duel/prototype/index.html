@@ -345,8 +345,8 @@ function render(key, b, n) {
       if (c.opp && c.opp.k === 'hit') anim = 'draw';
       let fake = null;
       for (const f of c.fakes) if (t >= f.at && t < f.at + D.T.FAKE_SHOW) fake = f;
-      if (fake && fake.kind === 'twitch') dx = ((t >> 4) & 1) ? 3 : -3;
-      nabo(v, ctx, t, anim, 120, WAIST, 128, { color: oc, dx, since: anim === 'enter' ? c.ready : undefined });
+      if (fake && fake.kind === 'twitch' && anim === 'stance') anim = 'twitch';   // 手指一抖（twitch v3）
+      nabo(v, ctx, t, anim, 120, WAIST, 128, { color: oc, dx, since: anim === 'enter' ? c.ready : anim === 'twitch' ? fake.at : undefined });
       if (ph === 'ready') text(ctx, '准备……', 120, 96, { size: 24, weight: 900, stroke: 5 });
       if (ph === 'ready') pill(ctx, `第 ${c.round} 局 · ${BO[m.bo]}`, 296, C.muted);
       if (ph === 'standoff') {

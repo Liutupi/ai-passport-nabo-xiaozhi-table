@@ -22,3 +22,11 @@ xiaozhi-esp32/releases/
 
 # NABO TABLE: frames extracted from the source videos (game-art/table/tools/clip_to_sprites.py)
 game-art/table/sprites/
+
+# Offline firmware build outputs
+standalone/build*/
+standalone/sdkconfig
+standalone/sdkconfig.old
+standalone/managed_components/
+standalone/dependencies.lock
+standalone/*.bin

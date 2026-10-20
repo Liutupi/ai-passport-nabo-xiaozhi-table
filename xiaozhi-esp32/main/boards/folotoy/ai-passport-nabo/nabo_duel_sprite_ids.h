@@ -11,5 +11,6 @@ typedef enum {
     NDS_SPLASHED = 4,   /* 18 frames @ 12 fps, 140x155 */
     NDS_LAUGH = 5,   /* 8 frames @ 6 fps, 89x129 */
     NDS_SLEEPY = 6,   /* 7 frames @ 4 fps, 86x128 */
-    NDS_COUNT = 7
+    NDS_TWITCH = 7,   /* 10 frames @ 24 fps, 85x128 */
+    NDS_COUNT = 8
 } nabo_duel_sprite_t;

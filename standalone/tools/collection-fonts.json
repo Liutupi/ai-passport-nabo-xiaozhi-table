@@ -1,0 +1,11 @@
+{
+  "converter": "lv_font_conv 1.5.3",
+  "font": "SourceHanSansCN-Medium.otf",
+  "font_sha256": "a94e558a2fe972bee4f46bce0843abff37063fd68c33f1e7d9058f6f09432b01",
+  "symbols": "·上下不两习亮人任休保入关决动单卧取可台和器回声备大存对工底度开态意扬择按整无是显暂本机桌次活消激点版牌状用电直眠示离秒线练网置联自设话谁调返进连选配量键长需音页首骰",
+  "outputs": {
+    "collection_font_12": "2fe5271e97c4e665248e71f5ab0b23f03eb7ff340aeae52f10fc3914e17ad4de",
+    "collection_font_16": "cfa8d3005f2af7ccf97d406651db0441af187e055c6ec099b888fa3c028bfd83",
+    "collection_font_18": "24f2f24edcdb7fd414e5734fa6b66ffd7fc2ea707cfefdd849c39160a713b3ac"
+  }
+}

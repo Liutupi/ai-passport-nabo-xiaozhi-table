@@ -1,0 +1,8 @@
+# Preserve the NABO/XiaoZhi partition boundaries for guarded app-only upgrades.
+# All game assets are embedded in this application's read-only flash mapping.
+# Name, Type, SubType, Offset, Size, Flags
+nvs,data,nvs,0x9000,0x6000,
+phy_init,data,phy,0xf000,0x1000,
+factory,app,factory,0x10000,0x3f0000,
+assets,data,spiffs,0x400000,0x300000,
+files,data,spiffs,0x700000,0x100000,

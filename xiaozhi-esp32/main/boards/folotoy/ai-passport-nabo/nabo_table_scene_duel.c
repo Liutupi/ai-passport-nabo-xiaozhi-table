@@ -288,7 +288,7 @@ static void scene_duel(ntg_t *g, const nabo_duel_t *u, const nt_fonts_t *f, cons
         const nd_fake_t *fake = NULL;
         for (int i = 0; i < c->fake_n; i++)
             if (since(t, c->fakes[i].at) >= 0 && since(t, c->fakes[i].at + ND_T_FAKE_SHOW) < 0) fake = &c->fakes[i];
-        if (fake && fake->kind == ND_FAKE_TWITCH) dx = (t >> 4) & 1 ? 3 : -3;
+        if (fake && fake->kind == ND_FAKE_TWITCH && anim == NDS_STANCE) anim = NDS_TWITCH, start = fake->at;   // the flinch
         nabo(g, anim, t, start, dx, oc);
         if (ph == ND_PH_READY) {
             char s[32];

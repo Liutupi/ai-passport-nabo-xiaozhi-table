@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 REPO = Path(__file__).resolve().parent.parent
 SPRITES = REPO / "game-art" / "duel" / "sprites"
 BOARD = REPO / "xiaozhi-esp32" / "main" / "boards" / "folotoy" / "ai-passport-nabo"
-OUT_BIN = BOARD / "duel_assets" / "duel_sprites.bin"
+OUT_BIN = BOARD / "table_assets" / "duel_sprites.bin"   # the whole folder goes into the assets partition
 OUT_H = BOARD / "nabo_duel_sprite_ids.h"
 OUT_JS = REPO / "game-art" / "duel" / "prototype" / "assets" / "nabo_duel_sprites.js"
 ANCHOR = (128, 224)
@@ -67,6 +67,7 @@ SPECS: List[DuelAnim] = [
     DuelAnim("splashed", 1, 12, max_w=140),   # 18 frames, 1.5 s: you won (far spray cropped)
     DuelAnim("laugh", 2, 6),                  # 8 frames, 1.33 s: you jumped the gun
     DuelAnim("sleepy", 2, 4),                 # 7 frames, 1.75 s: nobody fired
+    DuelAnim("twitch", 1, 24),                # 10 frames, 0.42 s: the fake-out flinch (v3)
 ]
 
 

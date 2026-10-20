@@ -159,6 +159,17 @@ bool ntg_dusk(ntg_t *g)
     return true;
 }
 
+bool ntg_bitmap(ntg_t *g, const uint16_t *pixels, int x, int y, int w, int h)
+{
+    if (!pixels || w <= 0 || h <= 0) return false;
+    ntg_op_t *op = add(g, NTG_BITMAP, x, y, x + w, y + h);
+    if (!op) return false;
+    op->u.bitmap.pixels = pixels;
+    op->u.bitmap.w = (int16_t)w;
+    seal(op, (uint32_t)(uintptr_t)pixels);
+    return true;
+}
+
 bool ntg_cup(ntg_t *g, int cx, int by, int alpha)
 {
     ntg_op_t *op = add(g, NTG_CUP, cx - 26, by - 52, cx + 27, by + 4);
@@ -235,6 +246,13 @@ static void paint(ntg_t *g, const ntg_op_t *op, int y, int x0, int x1, uint16_t 
     case NTG_TRI: ntg_paint_tri(op, y, x0, x1, row); break;
     case NTG_GLOW: ntg_paint_glow(op, y, x0, x1, row); break;
     case NTG_DUSK: ntg_paint_dusk(op, y, x0, x1, row); break;
+    case NTG_BITMAP: {
+        int first = x0 > op->x0 ? x0 : op->x0;
+        int last = x1 < op->x1 ? x1 : op->x1;
+        const uint16_t *src = op->u.bitmap.pixels + (y - op->y0) * op->u.bitmap.w;
+        for (int x = first; x < last; x++) row[x - x0] = src[x - op->x0];
+        break;
+    }
     default: break;
     }
 }

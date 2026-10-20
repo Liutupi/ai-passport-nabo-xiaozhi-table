@@ -11,7 +11,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "nabo_duel.h"
+#ifndef NABO_STANDALONE
 #include "wifi_manager.h"
+#endif
 
 #define TAG "NABO-Link"
 #define RX_QUEUE 16
@@ -20,7 +22,7 @@ static QueueHandle_t s_rx;
 static std::atomic<bool> s_active{false};
 static std::atomic<uint32_t> s_session{0};
 static std::atomic<uint32_t> s_rx_n{0}, s_drop_n{0}, s_fail_n{0};
-static bool s_station_paused, s_config_mode;
+static bool s_station_paused, s_config_mode, s_wifi_owned;
 static wifi_ps_type_t s_ps = WIFI_PS_MIN_MODEM;
 static wifi_interface_t s_ifx = WIFI_IF_STA;
 static const uint8_t BCAST[ND_MAC_LEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
@@ -77,6 +79,21 @@ bool nabo_link_begin(void)
     if (!s_rx) s_rx = xQueueCreate(RX_QUEUE, sizeof(nabo_link_rx_t));
     if (!s_rx) return false;
     xQueueReset(s_rx);
+#ifdef NABO_STANDALONE
+    // Offline firmware: nobody else owns the radio. Bring Wi-Fi up for ESP-NOW only, and take
+    // it down again (with its buffers) when the duel closes.
+    s_config_mode = false;
+    s_station_paused = false;
+    esp_err_t ev = esp_event_loop_create_default();
+    if (ev != ESP_OK && ev != ESP_ERR_INVALID_STATE) ESP_LOGW(TAG, "event loop: %s", esp_err_to_name(ev));
+    wifi_init_config_t init = WIFI_INIT_CONFIG_DEFAULT();
+    if (esp_wifi_init(&init) != ESP_OK) { ESP_LOGE(TAG, "wifi init failed"); return false; }
+    s_wifi_owned = true;
+    esp_wifi_set_storage(WIFI_STORAGE_RAM);
+    esp_wifi_set_mode(WIFI_MODE_STA);
+    if (esp_wifi_start() != ESP_OK) ESP_LOGE(TAG, "wifi start failed");
+    s_ifx = WIFI_IF_STA;
+#else
     auto &wifi = WifiManager::GetInstance();
     s_config_mode = wifi.IsConfigMode();
     s_station_paused = false;
@@ -91,6 +108,7 @@ bool nabo_link_begin(void)
     } else {
         s_ifx = WIFI_IF_AP;   // Wi-Fi setup portal: talk on its channel through the AP interface
     }
+#endif
     esp_wifi_get_ps(&s_ps);
     esp_wifi_set_ps(WIFI_PS_NONE);
     esp_err_t ch = esp_wifi_set_channel(NABO_LINK_CHANNEL, WIFI_SECOND_CHAN_NONE);
@@ -119,12 +137,20 @@ void nabo_link_end(void)
         esp_now_unregister_recv_cb();
         esp_now_deinit();
     }
+#ifdef NABO_STANDALONE
+    if (s_wifi_owned) {
+        esp_wifi_stop();
+        esp_wifi_deinit();
+        s_wifi_owned = false;
+    }
+#else
     esp_wifi_set_ps(s_ps);
     if (s_station_paused) {
         esp_wifi_stop();
         WifiManager::GetInstance().StartStation();   // reconnects as at boot; XiaoZhi resumes on its own
         s_station_paused = false;
     }
+#endif
     ESP_LOGI(TAG, "ESP-NOW down, rx=%lu dropped=%lu tx_fail=%lu", (unsigned long)s_rx_n.load(),
              (unsigned long)s_drop_n.load(), (unsigned long)s_fail_n.load());
 }
