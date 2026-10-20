@@ -13,7 +13,7 @@ extern "C" {
 
 #define NTS_VOICES 8
 
-typedef enum { NTV_OFF, NTV_KNOCK, NTV_NOISE, NTV_BELL, NTV_THUMP } nt_voice_kind_t;
+typedef enum { NTV_OFF, NTV_KNOCK, NTV_NOISE, NTV_BELL, NTV_THUMP, NTV_WOOD } nt_voice_kind_t;
 
 typedef struct {
     uint8_t kind;
@@ -38,7 +38,7 @@ typedef struct {
 void nt_sound_reset(nt_sound_t *s);
 // Starts the sounds for a model event mask (NT_EV_*).
 void nt_sound_events(nt_sound_t *s, uint32_t events);
-// NABO DUEL cues (NDU_CUE_* bits from nabo_duel.h); wind_ms is the stand-off length for the wind.
+// NABO DUEL cues (NDU_CUE_* bits from nabo_duel.h). Wind is silent; wind_ms is retained for compatibility.
 void nt_sound_duel(nt_sound_t *s, uint32_t cues, uint32_t wind_ms);
 // Mixes n samples into out (adds, with clipping).
 void nt_sound_fill(nt_sound_t *s, int16_t *out, size_t n);

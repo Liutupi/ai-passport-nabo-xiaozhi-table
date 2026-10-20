@@ -20,8 +20,9 @@ extern "C" {
 #define NDU_LAG_MS 30
 #define NDU_INPUTS 24
 #define NDU_MAX_STEPS 400   // ticks per advance; a longer gap jumps
+#define NDU_WAIT_QUIET_MS 220  // no new wait knocks near GO (90 ms sample plus audio/frame latency)
 
-// Sound cues (bits), taken by the audio worker.
+// Sound cues (bits), taken by the audio worker. HEART is the legacy name for the wooden wait beat.
 enum {
     NDU_CUE_TICK = 1 << 0, NDU_CUE_INVITE = 1 << 1, NDU_CUE_READY = 1 << 2, NDU_CUE_WIND = 1 << 3,
     NDU_CUE_HEART = 1 << 4, NDU_CUE_FAKE = 1 << 5, NDU_CUE_GO = 1 << 6, NDU_CUE_SHOT = 1 << 7,

@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "nabo_duel.h"
+#include "nabo_muyu_sound.h"
 #include "nabo_table_model.h"
 
 #define SR 16000
@@ -73,11 +74,10 @@ static void tone(nt_sound_t *s, int kind, int hz, uint32_t ms, uint32_t delay_ms
     v->step = (uint32_t)(((uint64_t)hz << 32) / SR);   // one turn = 2^32
     v->step2 = v->step * 276 / 100;             // bell partial at 2.76 x
     v->env = 1 << 16;
-    v->decay = kind == NTV_THUMP ? 65420 : 65507;   // about exp(-28 t) and exp(-7 t)
+    v->decay = kind == NTV_THUMP ? 65420 : 65507;
 }
 
-void nt_sound_reset(nt_sound_t *s)
-{
+void nt_sound_reset(nt_sound_t* s) {
     memset(s, 0, sizeof(*s));
     s->seed = 0x2545F491u;
 }
@@ -128,51 +128,94 @@ void nt_sound_events(nt_sound_t *s, uint32_t e)
     if (e & NT_EV_LIFT) noise(s, 260, 60, 1, 500, 1400, 0, 154);
     if (e & NT_EV_WIN) {
         static const int NOTES[4] = {523, 659, 784, 1047};
-        for (int i = 0; i < 4; i++) tone(s, NTV_BELL, NOTES[i], 700, (uint32_t)(i * 90), 56);
+        for (int i = 0; i < 4; i++)
+            tone(s, NTV_BELL, NOTES[i], 700, (uint32_t)(i * 90), 56);
     }
 }
 
-void nt_sound_duel(nt_sound_t *s, uint32_t c, uint32_t wind_ms)
-{
-    // Same voices as the table, tuned after game-art/duel/prototype (playFx / ambient).
-    if (c & NDU_CUE_TICK) knock1(s, 20, 0, 128);
-    if (c & NDU_CUE_INVITE) tone(s, NTV_BELL, 1200, 220, 0, 64);
-    if (c & NDU_CUE_READY) knock1(s, 30, 0, 110);
-    if (c & NDU_CUE_WIND) noise(s, wind_ms > 6000 ? 6000 : wind_ms, 400, 0, 0, 500, 0, 40);   // low wind until the draw
-    if (c & NDU_CUE_HEART) tone(s, NTV_THUMP, 58, 160, 0, 230);
-    if (c & NDU_CUE_FAKE) noise(s, 60, 1, 4, 1800, 3200, 0, 150);
-    if (c & NDU_CUE_GO) {   // the bell of the draw
+void nt_sound_duel(nt_sound_t* s, uint32_t c, uint32_t wind_ms) {
+    // Keep duel feedback tonal: no wind loop or noise bursts on the badge speaker.
+    // Retain the runtime cue/duration interface so timing and the link protocol stay unchanged.
+    (void)wind_ms;
+    if (c & NDU_CUE_TICK)
+        knock1(s, 20, 0, 128);
+    if (c & NDU_CUE_INVITE)
+        tone(s, NTV_BELL, 1200, 220, 0, 64);
+    if (c & NDU_CUE_READY)
+        knock1(s, 30, 0, 110);
+    if (c & NDU_CUE_HEART) {
+        // Legacy wait-beat cue now plays the existing NABO wooden-fish PCM, once per beat.
+        nt_voice_t* v = alloc_voice(s);
+        memset(v, 0, sizeof(*v));
+        v->kind = NTV_WOOD;
+        v->len = NABO_MUYU_SOUND_FRAMES;
+        v->gain = 320;  // 1.25 x the original knock, with speaker headroom
+    }
+    if (c &
+        (NDU_CUE_GO | NDU_CUE_SHOT | NDU_CUE_FOUL | NDU_CUE_WIN | NDU_CUE_LOSE | NDU_CUE_LEFT)) {
+        // Fade a remaining wait knock over the bell's 2.5 ms attack.
+        for (int i = 0; i < NTS_VOICES; i++) {
+            nt_voice_t* v = &s->v[i];
+            if (v->kind != NTV_WOOD)
+                continue;
+            if (v->delay)
+                v->kind = NTV_OFF;
+            else if (v->len > v->at + 40)
+                v->len = v->at + 40;
+        }
+    }
+    if (c & NDU_CUE_FAKE)
+        tone(s, NTV_THUMP, 420, 60, 0, 80);
+    if (c & NDU_CUE_GO) {  // the bell of the draw
         tone(s, NTV_BELL, 1760, 500, 0, 110);
         tone(s, NTV_BELL, 2640, 350, 0, 50);
     }
-    if (c & NDU_CUE_SHOT) noise(s, 120, 1, 2, 800, 3000, 0, 170);       // water pistol
-    if (c & NDU_CUE_FOUL) tone(s, NTV_THUMP, 140, 350, 0, 120);
+    if (c & NDU_CUE_SHOT)
+        tone(s, NTV_BELL, 1047, 120, 0, 50);
+    if (c & NDU_CUE_FOUL)
+        tone(s, NTV_THUMP, 140, 350, 0, 120);
     if (c & NDU_CUE_WIN) {
-        noise(s, 400, 5, 2, 400, 1800, 0, 140);                        // splash on the other side
         static const int NOTES[3] = {523, 659, 784};
-        for (int i = 0; i < 3; i++) tone(s, NTV_BELL, NOTES[i], 260, (uint32_t)(250 + i * 120), 60);
+        for (int i = 0; i < 3; i++)
+            tone(s, NTV_BELL, NOTES[i], 260, (uint32_t)(250 + i * 120), 60);
     }
-    if (c & NDU_CUE_LOSE) noise(s, 500, 5, 2, 300, 1500, 0, 150);
-    if (c & NDU_CUE_REPLAY) knock1(s, 24, 0, 100);
-    if (c & NDU_CUE_LEFT) tone(s, NTV_BELL, 523, 400, 0, 50);
+    if (c & NDU_CUE_LOSE) {
+        tone(s, NTV_BELL, 392, 220, 0, 55);
+        tone(s, NTV_BELL, 294, 260, 130, 55);
+    }
+    if (c & NDU_CUE_REPLAY)
+        knock1(s, 24, 0, 100);
+    if (c & NDU_CUE_LEFT)
+        tone(s, NTV_BELL, 523, 400, 0, 50);
 }
 
-static int32_t sine(uint32_t phase)   // phase: 16 bits per turn -> Q15
+static int32_t sine(uint32_t phase)  // phase: 16 bits per turn -> Q15
 {
-    static const int16_t Q[17] = {0, 3212, 6393, 9512, 12539, 15446, 18204, 20787, 23170,
+    static const int16_t Q[17] = {0,     3212,  6393,  9512,  12539, 15446, 18204, 20787, 23170,
                                   25329, 27245, 28898, 30273, 31356, 32137, 32609, 32767};
     uint32_t p = phase & 0xFFFF, q = p & 0x3FFF;
     int32_t i = (int32_t)(q >> 10), f = (int32_t)(q & 1023);
-    if ((p >> 14) & 1) { i = 16 - i - 1; f = 1024 - f; }
+    if ((p >> 14) & 1) {
+        i = 16 - i - 1;
+        f = 1024 - f;
+    }
     int32_t v = Q[i] + (Q[i + 1] - Q[i]) * f / 1024;
     return p >= 0x8000 ? -v : v;
 }
 
-static int32_t voice_sample(nt_voice_t *v)
-{
-    if (v->delay) { v->delay--; return 0; }
+static int32_t voice_sample(nt_voice_t* v) {
+    if (v->delay) {
+        v->delay--;
+        return 0;
+    }
     int32_t x = 0;
     switch (v->kind) {
+    case NTV_WOOD: {
+        if (v->at >= v->len) { v->kind = NTV_OFF; return 0; }
+        x = nabo_muyu_sound_pcm[v->at];
+        if (v->len - v->at < 40) x = x * (int32_t)(v->len - v->at) / 40;
+        break;
+    }
     case NTV_KNOCK: {
         int16_t one;
         if (!nabo_dice_sound_fill(&v->knock, &one, 1)) { v->kind = NTV_OFF; return 0; }
@@ -182,24 +225,37 @@ static int32_t voice_sample(nt_voice_t *v)
         if (v->at >= v->len) { v->kind = NTV_OFF; return 0; }
         int32_t w = (int32_t)(next_rand(&v->rng) >> 17) - 16384;   // white, Q14
         int32_t env = 32768;
-        if ((int32_t)v->at < v->attack) env = env * (int32_t)v->at / v->attack;
+        if ((int32_t)v->at < v->attack)
+            env = env * (int32_t)v->at / v->attack;
         int32_t rest = (int32_t)((uint64_t)(v->len - v->at) * 32768 / v->len);
-        for (int k = 0; k < v->power; k++) env = env * rest >> 15;
-        if (v->gap) {   // click train: short bursts, gap shrinking towards 8 ms
-            if (v->at >= v->next_click) { v->burst = MS(3); v->next_click = v->at + v->gap; v->gap = v->gap * 15 / 16 + MS(8) / 16; }
+        for (int k = 0; k < v->power; k++)
+            env = env * rest >> 15;
+        if (v->gap) {  // click train: short bursts, gap shrinking towards 8 ms
+            if (v->at >= v->next_click) {
+                v->burst = MS(3);
+                v->next_click = v->at + v->gap;
+                v->gap = v->gap * 15 / 16 + MS(8) / 16;
+            }
             env = v->burst ? env * (int32_t)v->burst / MS(3) : 0;
-            if (v->burst) v->burst--;
+            if (v->burst)
+                v->burst--;
         }
-        v->lp += (w - v->lp) * v->hi >> 12;          // low-pass at hi
+        v->lp += (w - v->lp) * v->hi >> 12;  // low-pass at hi
         int32_t band = v->lp;
-        if (v->lo) { v->hp += (v->lp - v->hp) * v->lo >> 12; band = v->lp - v->hp; }   // minus low-pass at lo
+        if (v->lo) {
+            v->hp += (v->lp - v->hp) * v->lo >> 12;
+            band = v->lp - v->hp;
+        }  // minus low-pass at lo
         x = band * env >> 15;
-        x = x * 2;   // Q14 noise to roughly full scale
+        x = x * 2;  // Q14 noise to roughly full scale
         break;
     }
     case NTV_BELL:
     case NTV_THUMP: {
-        if (v->at >= v->len || v->env < 64) { v->kind = NTV_OFF; return 0; }
+        if (v->at >= v->len || v->env < 64) {
+            v->kind = NTV_OFF;
+            return 0;
+        }
         v->phase += v->step;
         int32_t a = sine(v->phase >> 16);
         if (v->kind == NTV_BELL) {
@@ -222,7 +278,8 @@ void nt_sound_fill(nt_sound_t *s, int16_t *out, size_t n)
     for (size_t i = 0; i < n; i++) {
         int32_t mix = out[i];
         for (int k = 0; k < NTS_VOICES; k++)
-            if (s->v[k].kind != NTV_OFF) mix += voice_sample(&s->v[k]);
+            if (s->v[k].kind != NTV_OFF)
+                mix += voice_sample(&s->v[k]);
         out[i] = (int16_t)(mix > 32767 ? 32767 : mix < -32768 ? -32768 : mix);
     }
 }

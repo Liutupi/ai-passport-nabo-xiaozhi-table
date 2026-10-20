@@ -1,3 +1,22 @@
+# NABO 牌桌 · 对决 离线版
+
+**已发布：offline-v1.0.0 · 2026-10-21。** 本分支的正式固件为独立离线版：牌桌（21 点、大话骰、谁是卧底）、双机 ESP-NOW 对决、单人练习和设置。开机即可玩，不含小智，不需要路由器或激活。
+
+[下载离线版固件](https://github.com/Liutupi/ai-passport-nabo-xiaozhi-table/releases/tag/offline-v1.0.0) · [安装与验收说明](docs/RELEASE_offline-v1.0.0.md) · [离线版源码／构建](standalone/) · [验证摘要](validation/offline-v1.0.0.json)
+
+等待声为原 NABO 木鱼的短敲击，节奏逐渐加快，拔枪前停敲；拔枪仍响“叮”。结算按你这台的胜负播放：**赢了吹枪，输了哭脸／被呲**。两台已完成保留设置和成绩的升级及回读校验，用户确认声音和胜负动画正常。
+
+| 你赢了 | 你输了 |
+|---|---|
+| ![赢了吹枪](docs/images/offline-duel-round-win.png) | ![输了哭脸](docs/images/offline-duel-round-lose.png) |
+
+以上为生产渲染器直出示例，非真机截屏。Release 复用已验收原镜像，应用 SHA256 `fb8af7fe4620104106c8e0fe29a351589ad554b7b3e68540815edb308ee745e3`。每次只接一台，使用 ZIP 内升级脚本可保留兼容分区的设置与成绩；首次整包安装会覆盖写入范围内的原设置，请先备份。
+
+带小智的牌桌固件使用 [v1.6.0](https://github.com/Liutupi/ai-passport-nabo-xiaozhi-table/releases/tag/v1.6.0)，不要把离线包当作小智固件。`xiaozhi-esp32/` 内对决集成仍在开发，离线版验收不代表小智语音和联网恢复回归。
+
+<details>
+<summary>小智牌桌版的历史说明</summary>
+
 # AI Passport · NABO × 小智 · 牌桌版
 
 为 **FoloToy AI Passport（ESP32-C3 / 8 MB）**制作的小智定制固件，带「**NABO 牌桌**」：2–4 人的 21 点、大话骰，以及新增的 **3–8 人谁是卧底**。一台工牌传着玩，NABO 当荷官。另有 NABO 待机与对话动画、跳一跳，以及完整的设备设置。
@@ -68,3 +87,5 @@ python tools/run_tests.py
 先阅读 [HANDOFF.md](docs/HANDOFF.md)：它说明源码职责、音频与网络生命周期、已有问题的修复原因、回归测试和下一版发布流程。`validation/` 只保存去除设备标识和私人内容的验证摘要；仓库和 Release 不包含 NVS、设备整片备份、Wi-Fi 信息、账号令牌或对话日志。
 
 源码、解码器、字体及美术/音频素材的来源与许可分别列在 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。NABO 美术与社区音效不因源码的 MIT 许可证而自动变成 MIT 素材。本项目是独立定制项目，与微信及 FoloToy 官方发行无关联。
+
+</details>

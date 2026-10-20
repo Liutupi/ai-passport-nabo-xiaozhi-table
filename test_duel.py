@@ -471,6 +471,8 @@ r.rh_state.argtypes = [I, ctypes.POINTER(ctypes.c_longlong)]
 r.rh_out.argtypes = [I, ctypes.c_char_p]
 r.rh_cues.restype = U
 r.rh_frame.argtypes = [ctypes.POINTER(ctypes.c_uint16)]
+r.rh_result_fixture.argtypes = [I, I, I, I, U]
+r.rh_sprite_name.restype = ctypes.c_char_p
 DUEL_PACK = BOARD / 'table_assets/duel_sprites.bin'
 DUEL_BUFFER = r.rh_init(str(DUEL_PACK).encode())
 SHOTS = Path(os.environ.get('DUEL_SHOTS') or (Path(temp.name) / 'shots'))   # DUEL_SHOTS=dir keeps the screenshots
@@ -603,6 +605,29 @@ def react(ms):
 
 
 class Runtime(unittest.TestCase):
+    def test_waiting_knocks_leave_a_quiet_gap_before_draw(self):
+        air, b = self.solo()
+        beats = 0
+        for _ in range(16000):
+            air.step(1)
+            cues = r.rh_cues(b.i)
+            if cues & (1 << 4):
+                state = rstate(b.i)
+                self.assertEqual(state['phase'], 2)
+                self.assertGreater(state['go_at'] - state['ticked'], 180)
+                beats += 1
+        self.assertGreater(beats, 2, 'the actual runtime must emit audible waiting beats')
+
+    def test_result_animation_matches_this_badges_outcome(self):
+        for mode in (0, 1, 2):  # round reveal, whole match, waiting after a round
+            for guest in (0, 1):
+                for won, foul in ((1, 0), (0, 0), (0, 1)):
+                    for elapsed in (0, 500, 1400, 2400):
+                        with self.subTest(mode=mode, guest=guest, won=won, foul=foul, elapsed=elapsed):
+                            r.rh_result_fixture(mode, won, foul, guest, elapsed)
+                            self.assertGreaterEqual(r.rh_draw(0, 1), 0)
+                            self.assertEqual(r.rh_sprite_name(), b'smug' if won else b'splashed')
+
     def test_sprite_buffer_budget(self):
         self.assertGreater(DUEL_BUFFER, 0, 'duel sprite pack failed to load')
         self.assertLessEqual(DUEL_BUFFER, 22 * 1024)   # one index buffer for the biggest animation

@@ -184,47 +184,43 @@ static void score_bar(ntg_t *g, const nd_t *m, const nt_fonts_t *f)
     ntg_rect(g, NTG_W - 19, 10, 10, 10, 5, oc, 255, 0, 0);
     txt(g, f->mono, m->match.opp_name, NTG_W - 26, 15, NT_ALIGN_RIGHT, COL_MUTED);
     snprintf(s, sizeof(s), "%d", m->match.opp);
-    txt(g, f->poster, s, NTG_W - 34 - ntg_text_width(f->mono, m->match.opp_name), 16, NT_ALIGN_RIGHT, COL_FG);
+    txt(g, f->poster, s, NTG_W - 34 - ntg_text_width(f->mono, m->match.opp_name), 16,
+        NT_ALIGN_RIGHT, COL_FG);
 }
 
-static void reveal(ntg_t *g, const nabo_duel_t *u, const nt_fonts_t *f, const nd_attempt_t *c)
-{
-    const nd_t *m = &u->m;
+static void reveal(ntg_t* g, const nabo_duel_t* u, const nt_fonts_t* f, const nd_attempt_t* c) {
+    const nd_t* m = &u->m;
     uint32_t t = u->ticked, t0 = c->resolved_at;
     uint16_t mc, oc;
     you_colors(m, &mc, &oc);
     nd_outcome_t out = (nd_outcome_t)c->outcome;
-    // You won: the opponent gets soaked. You lost: they draw, then gloat. You jumped: they laugh.
+    // Results show this badge's player: winning blows the barrel, losing gets soaked/tearful.
     int anim = NDS_STANCE;
     uint32_t start = t0;
-    if (out == ND_OUT_WIN) anim = NDS_SPLASHED;
-    else if (out == ND_OUT_LOSE && c->me.k == ND_RES_FOUL) anim = NDS_LAUGH;
-    else if (out == ND_OUT_LOSE) {
-        uint32_t d = anim_ms(g, NDS_DRAW);
-        if (since(t, t0 + d) < 0) anim = NDS_DRAW;
-        else anim = NDS_SMUG, start = t0 + d;
-    } else if (c->me.k == ND_RES_NONE && c->opp.k == ND_RES_NONE) anim = NDS_SLEEPY;
-    else if (c->me.k == ND_RES_FOUL) anim = NDS_LAUGH;
-    nabo(g, anim, t, start, 0, oc);
+    if (out == ND_OUT_WIN)
+        anim = NDS_SMUG;
+    else if (out == ND_OUT_LOSE)
+        anim = NDS_SPLASHED;
+    else if (c->me.k == ND_RES_NONE && c->opp.k == ND_RES_NONE)
+        anim = NDS_SLEEPY;
+    else if (c->me.k == ND_RES_FOUL)
+        anim = NDS_LAUGH;
+    nabo(g, anim, t, start, 0, mc);
     int32_t el = since(t, t0);
-    if (out == ND_OUT_WIN) {
-        static const int16_t DX[8] = {-58, 50, -40, 62, -66, 34, -20, 70}, DY[8] = {-60, -40, -96, -84, -20, -110, -126, -14};
+    if (out == ND_OUT_LOSE) {
+        static const int16_t DX[8] = {-58, 50, -40, 62, -66, 34, -20, 70},
+                             DY[8] = {-60, -40, -96, -84, -20, -110, -126, -14};
         int grow = el > 0 ? (el > 600 ? 20 : el / 30) : 0;
         for (int i = 0; i < 8; i++) {
             int r = 3 + i % 3, x = NTG_W / 2 + DX[i] * (40 + grow) / 40, y = 200 + DY[i];
             ntg_rect(g, x - r, y - r, 2 * r, 2 * r, r, COL_WATER, 220, 0, 0);
         }
-    } else if (out == ND_OUT_LOSE && c->me.k != ND_RES_FOUL && since(t, t0 + anim_ms(g, NDS_DRAW) / 2) >= 0) {
-        int drip = el > 0 ? (el > 1500 ? 60 : el / 25) : 0;   // your screen got splashed
-        for (int i = 0; i < 6; i++) {
-            int x = (i * 71 + 23) % 200 + 20, y = (i * 47) % 180 + 40 + drip * (i % 3 + 1) / 3, w = 14 + i % 4 * 6;
-            ntg_rect(g, x - w / 2, y - w * 3 / 4, w, w * 3 / 2, w / 2, COL_WATER, 110, 0, 0);
-        }
     }
-    const char *title = out == ND_OUT_WIN ? "你赢了这局"
-                      : out == ND_OUT_LOSE ? (c->me.k == ND_RES_FOUL ? "你抢跑了" : "慢了一步")
-                      : c->me.k == ND_RES_FOUL ? "都太急了"
-                      : c->me.k == ND_RES_NONE ? "都睡着了？" : "一模一样！";
+    const char* title = out == ND_OUT_WIN    ? "你赢了这局"
+                        : out == ND_OUT_LOSE ? (c->me.k == ND_RES_FOUL ? "你抢跑了" : "慢了一步")
+                        : c->me.k == ND_RES_FOUL ? "都太急了"
+                        : c->me.k == ND_RES_NONE ? "都睡着了？"
+                                                 : "一模一样！";
     int tw = ntg_text_width(f->f24, title) + 28;
     ntg_rect(g, (NTG_W - tw) / 2, 78, tw, 36, 18, COL_INK, 150, 0, 0);
     txt(g, f->f24, title, NTG_W / 2, 96, NT_ALIGN_CENTER, out == ND_OUT_WIN ? COL_YELLOW : out == ND_OUT_LOSE ? COL_FG : COL_BRASS);
@@ -249,16 +245,16 @@ static void reveal(ntg_t *g, const nabo_duel_t *u, const nt_fonts_t *f, const nd
 
 static void scene_duel(ntg_t *g, const nabo_duel_t *u, const nt_fonts_t *f, const lv_font_t *big)
 {
-    const nd_t *m = &u->m;
-    const nd_match_t *mt = &m->match;
-    const nd_attempt_t *c = &m->cur;
+    const nd_t* m = &u->m;
+    const nd_match_t* mt = &m->match;
+    const nd_attempt_t* c = &m->cur;
     uint32_t t = u->ticked;
     uint16_t mc, oc;
     you_colors(m, &mc, &oc);
     if (m->scene == ND_END) {
         bool won = mt->me > mt->opp;
         char s[16];
-        nabo(g, won ? NDS_SPLASHED : NDS_SMUG, t, m->scene_at, 0, oc);
+        nabo(g, won ? NDS_SMUG : NDS_SPLASHED, t, m->scene_at, 0, mc);
         veil(g, SHADE);
         txt(g, f->f24, won ? "你赢下了这场" : "对手赢了", NTG_W / 2, 70, NT_ALIGN_CENTER, won ? COL_YELLOW : COL_FG);
         snprintf(s, sizeof(s), "%d : %d", mt->me, mt->opp);

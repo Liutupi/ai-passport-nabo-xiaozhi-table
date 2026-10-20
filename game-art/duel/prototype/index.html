@@ -135,6 +135,7 @@ dd { margin: 0; font-family: var(--mono); font-size: 12px; font-variant-numeric:
 </div>
 
 <script src="assets/nabo_duel_sprites.js"></script>
+<script src="assets/nabo_duel_wait.js"></script>
 <script src="duel_model.js"></script>
 <script src="sim.js"></script>
 <script>
@@ -247,22 +248,18 @@ function scoreBar(ctx, b) {
 
 function drawReveal(ctx, v, b, t, c) {
   const m = b.match, [mc, oc] = colors(b), out = c.outcome;
-  // 你赢：对面被呲；你输：对面先拔枪再得意；你抢跑：对面笑你；都没按：打哈欠
+  // 结算展示本机玩家：赢了吹枪，输了被呲/哭脸；都没按则打哈欠。
   const t0 = c.resolvedAt;
   let anim = 'stance', since;
-  if (out === 'win') anim = 'splashed';
-  else if (out === 'lose' && c.me.k === 'foul') anim = 'laugh';
-  else if (out === 'lose') { anim = t - t0 < animLen('draw') ? 'draw' : 'smug'; since = anim === 'draw' ? t0 : t0 + animLen('draw'); }
+  if (out === 'win') anim = 'smug';
+  else if (out === 'lose') anim = 'splashed';
   else if (c.me.k === 'none' && c.opp.k === 'none') anim = 'sleepy';
   else if (c.me.k === 'foul') anim = 'laugh';
-  nabo(v, ctx, t, anim, 120, WAIST, 128, { color: oc, since });
-  if (out === 'win') {   // 对面被呲了一脸
+  since = t0;
+  nabo(v, ctx, t, anim, 120, WAIST, 128, { color: mc, since });
+  if (out === 'lose') {   // 本机玩家输了，配合哭脸水花。
     ctx.fillStyle = C.water;
     for (let i = 0; i < 14; i++) { const a = i * 2.4, d = 30 + (i * 13) % 34 + Math.min(20, (t - v.since) / 30); ctx.globalAlpha = .85; ctx.beginPath(); ctx.arc(120 + Math.cos(a) * d, 120 + Math.sin(a) * d * .8, 3 + i % 3, 0, 7); ctx.fill(); }
-    ctx.globalAlpha = 1;
-  } else if (out === 'lose' && c.me.k !== 'foul') {   // 你的屏幕被呲了
-    ctx.fillStyle = C.water; ctx.globalAlpha = .5;
-    for (let i = 0; i < 9; i++) { const x = (i * 71 + 23) % 220 + 10, y = (i * 47) % 200 + 40 + Math.min(60, (t - v.since) / 25) * ((i % 3) + 1) / 3; ctx.beginPath(); ctx.ellipse(x, y, 10 + i % 4 * 4, 14 + i % 3 * 5, 0, 0, 7); ctx.fill(); }
     ctx.globalAlpha = 1;
   }
   const title = out === 'win' ? '你赢了这局' : out === 'lose' ? (c.me.k === 'foul' ? '你抢跑了' : '慢了一步') : (c.me.k === 'foul' ? '都太急了' : c.me.k === 'none' ? '都睡着了？' : '一模一样！');
@@ -327,7 +324,7 @@ function render(key, b, n) {
     const ph = s === 'duel' ? b.phase(t) : 'wait';
     if (s === 'end') {
       const won = m.me > m.opp;
-      nabo(v, ctx, t, won ? 'splashed' : 'smug', 120, WAIST, 128, { color: oc });
+      nabo(v, ctx, t, won ? 'smug' : 'splashed', 120, WAIST, 128, { color: mc, since: b.sceneAt });
       ctx.fillStyle = C.shade; ctx.fillRect(0, 0, 240, 320);
       text(ctx, won ? '你赢下了这场' : `${m.oppName} 赢了`, 120, 70, { size: 22, weight: 900, color: won ? C.yellow : C.fg, stroke: 5 });
       text(ctx, `${m.me} : ${m.opp}`, 120, 128, { size: 44, font: F_DISP, weight: 400, color: C.brass, stroke: 6 });
@@ -383,39 +380,55 @@ function render(key, b, n) {
 }
 
 // ---------- 声音（只放工牌 A 的） ----------
-let ac = null, wind = null, beatAt = 0;
+let ac = null, beatAt = 0, waitBuffer = null, waitSounds = [];
 function tone(f, d, type = 'sine', g = .2, at = 0) {
   const o = ac.createOscillator(), e = ac.createGain(), t0 = ac.currentTime + at;
   o.type = type; o.frequency.value = f; e.gain.setValueAtTime(g, t0); e.gain.exponentialRampToValueAtTime(.0001, t0 + d);
   o.connect(e).connect(ac.destination); o.start(t0); o.stop(t0 + d + .02);
-}
-function noise(d, f, q, g, sweep) {
-  const len = Math.floor(ac.sampleRate * d), buf = ac.createBuffer(1, len, ac.sampleRate), ch = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
-  const s = ac.createBufferSource(), bp = ac.createBiquadFilter(), e = ac.createGain(), t0 = ac.currentTime;
-  s.buffer = buf; bp.type = 'bandpass'; bp.frequency.setValueAtTime(f, t0); if (sweep) bp.frequency.exponentialRampToValueAtTime(sweep, t0 + d); bp.Q.value = q;
-  e.gain.setValueAtTime(g, t0); e.gain.exponentialRampToValueAtTime(.0001, t0 + d);
-  s.connect(bp).connect(e).connect(ac.destination); s.start();
+  return { gain: e.gain, start: t0, end: t0 + d };
 }
 function playFx(fx) {
   if (!ac) return;
   for (const f of fx) {
+    if (['go', 'shot', 'foul', 'win', 'lose', 'left'].includes(f.k)) {
+      for (const h of waitSounds) {
+        h.gain.cancelAndHoldAtTime(ac.currentTime);
+        if (h.start > ac.currentTime) h.gain.setValueAtTime(0, ac.currentTime);
+        else h.gain.linearRampToValueAtTime(0, ac.currentTime + .0025);
+      }
+      waitSounds = [];
+    }
     if (f.k === 'go') { tone(1760, .5, 'sine', .25); tone(2640, .35, 'sine', .12); }
-    else if (f.k === 'fake') noise(.06, 2400, 4, .25);
-    else if (f.k === 'shot') noise(.12, 3000, 1, .35, 800);
+    else if (f.k === 'fake') tone(420, .06, 'sine', .12);
+    else if (f.k === 'shot') tone(1047, .12, 'sine', .12);
     else if (f.k === 'foul') { tone(140, .35, 'square', .08); }
-    else if (f.k === 'win') { noise(.4, 1800, 2, .25, 400); [523, 659, 784].forEach((n, i) => tone(n, .22, 'triangle', .14, .25 + i * .12)); }
-    else if (f.k === 'lose') noise(.5, 1500, 2, .3, 300);
+    else if (f.k === 'win') { [523, 659, 784].forEach((n, i) => tone(n, .22, 'triangle', .14, .25 + i * .12)); }
+    else if (f.k === 'lose') { tone(392, .22, 'sine', .12); tone(294, .26, 'sine', .12, .13); }
     else if (f.k === 'tick' || f.k === 'invite' || f.k === 'ready') tone(f.k === 'invite' ? 1200 : 900, .06, 'square', .05);
   }
 }
+function woodenKnock() {
+  const asset = window.NABO_DUEL_WAIT_AUDIO;
+  if (!waitBuffer) {
+    waitBuffer = ac.createBuffer(1, asset.pcm.length, asset.sampleRate);
+    waitBuffer.getChannelData(0).set(asset.pcm.map(x => x / 32768));
+  }
+  const source = ac.createBufferSource(), gain = ac.createGain(), start = ac.currentTime;
+  source.buffer = waitBuffer; gain.gain.value = asset.gain;
+  source.connect(gain).connect(ac.destination); source.start();
+  return { gain: gain.gain, start, end: start + waitBuffer.duration };
+}
 function ambient(b, t) {
-  if (!ac || !wind) return;
+  if (!ac) return;
   const on = b.scene === 'duel' && b.phase(t) === 'standoff';
-  wind.gain.setTargetAtTime(on ? .06 : 0, ac.currentTime, .2);
   if (on) {
     const c = b.cur, left = (c.goAt - t) / c.delay, gap = 380 + 500 * Math.max(0, left);
-    if (t - beatAt > gap) { beatAt = t; tone(58, .16, 'sine', .35); }
+    if (c.goAt - t <= 220) return;
+    if (t - beatAt > gap) {
+      beatAt = t;
+      waitSounds = waitSounds.filter(h => h.end > ac.currentTime);
+      waitSounds.push(woodenKnock());
+    }
   }
 }
 document.getElementById('sound').addEventListener('click', e => {
@@ -423,10 +436,6 @@ document.getElementById('sound').addEventListener('click', e => {
   e.currentTarget.setAttribute('aria-pressed', on);
   if (on && !ac) {
     ac = new AudioContext();
-    const len = ac.sampleRate * 2, buf = ac.createBuffer(1, len, ac.sampleRate), ch = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
-    const s = ac.createBufferSource(), lp = ac.createBiquadFilter(); s.buffer = buf; s.loop = true; lp.type = 'lowpass'; lp.frequency.value = 500;
-    wind = ac.createGain(); wind.gain.value = 0; s.connect(lp).connect(wind).connect(ac.destination); s.start();
   } else if (ac) { on ? ac.resume() : ac.suspend(); }
 });
 

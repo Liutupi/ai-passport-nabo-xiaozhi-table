@@ -145,3 +145,37 @@ int rh_draw(int i, int check)
 }
 
 void rh_frame(uint16_t *out) { memcpy(out, inc->fb, sizeof(inc->fb)); }
+
+// Result fixtures exercise the production scene builder for both players and result screens.
+void rh_result_fixture(int mode, int won, int foul, int guest, unsigned elapsed)
+{
+    nabo_duel_t *u = &s_glue[0];
+    memset(u, 0, sizeof(*u));
+    u->ticked = 10000 + elapsed;
+    nd_t *m = &u->m;
+    m->scene = mode == 1 ? ND_END : ND_DUEL;
+    m->scene_at = 10000;
+    m->has_match = true;
+    m->match.host = !guest;
+    m->match.bo = 3;
+    m->match.me = won ? 2 : 0;
+    m->match.opp = won ? 0 : 2;
+    strcpy(m->match.opp_name, "NABO-B");
+    m->has_cur = mode != 2;
+    m->cur.resolved = true;
+    m->cur.resolved_at = 10000;
+    m->cur.outcome = won ? ND_OUT_WIN : ND_OUT_LOSE;
+    m->cur.has_me = m->cur.has_opp = true;
+    m->cur.me = (nd_res_t){foul ? ND_RES_FOUL : ND_RES_HIT, won ? 230 : 340};
+    m->cur.opp = (nd_res_t){ND_RES_HIT, won ? 340 : 230};
+    m->match.has_last = true;
+    m->match.last = m->cur;
+}
+
+const char *rh_sprite_name(void)
+{
+    for (int i = 0; i < inc->g.n; i++)
+        if (inc->g.ops[i].kind == NTG_SPRITE)
+            return (const char *)(pack.data + pack.anims_off + 32u * inc->g.ops[i].u.sprite.anim);
+    return "";
+}

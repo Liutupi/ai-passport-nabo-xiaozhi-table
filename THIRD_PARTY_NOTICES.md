@@ -25,3 +25,5 @@ v1.3.x 深潜版的 NABO 潜水帧见 <https://github.com/Liutupi/nabo-dive>；�
 节奏回声（ECHO CLUB）的“先听示范、再拍回去”玩法受 AI Passport 社区《节奏闯关 · COPYCAT CLUB》启发；界面、关卡节奏型、合成音色和全部代码均为本项目原创实现，未使用该作品的源码、图像或声音。
 
 本项目不包含微信客户端、社区整片固件、私人账号数据或他人的设备备份。
+
+对决等待木鱼音效复用项目拥有者此前 NABO 木鱼程序的原创合成 PCM（`nabo_muyu_sound.h`），16 kHz、1440 采样；原文件 SHA256 `2856df188461aa819cafbb16c036872ab86461dc3aa2e316503c58933987eef8`。浏览器版本由 `tools/generate_duel_wait_audio.py` 从同一采样生成；未取用第三方木鱼录音。

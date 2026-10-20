@@ -1,0 +1,45 @@
+{
+  "release_tag": "offline-v1.0.0",
+  "validation_date": "2026-10-20",
+  "firmware_project": "nabo-table-duel-offline",
+  "app_sha256": "fb8af7fe4620104106c8e0fe29a351589ad554b7b3e68540815edb308ee745e3",
+  "app_bytes": 3009872,
+  "merged_sha256": "92068f2066d96649a2936e6d0a47841394d8f29ee28ff0479cf72f322f2d14a7",
+  "merged_bytes": 3075408,
+  "app_partition_bytes": 4128768,
+  "app_partition_free_bytes": 1118896,
+  "build_sdk": "ESP-IDF 6.0.2",
+  "build_base_commit": "5931b83691c303e8c213f9f5fe6da2a48b5e1e6b",
+  "accepted_build_patch_sha256": "56e6ee7f1dba37b166ebcbce25dc934a5ebfd70e3a6bed763c2d7715a9954484",
+  "host_tests": {
+    "passed": 56,
+    "failed": 0,
+    "result_scenarios": 72,
+    "incremental_and_full_result_renders": 144,
+    "audio_overlap_scenarios": 220
+  },
+  "hardware": {
+    "device_count": 2,
+    "app_only_upgrade": true,
+    "full_backups_verified": true,
+    "app_readback_verified": true,
+    "preserved_nvs_phy_assets_files_verified": true,
+    "runtime_settings_unchanged": true,
+    "boot_status_received": true
+  },
+  "user_acceptance": {
+    "quote": "这次木鱼声可以了，赢了和输了的动画也正常了。",
+    "wooden_wait_sound": true,
+    "win_lose_animations": true
+  },
+  "release_rebuild_performed": false,
+  "release_remerge_performed": false,
+  "not_retested": [
+    "blank-device merged install",
+    "all menu paths and player counts",
+    "deep-sleep wakeup",
+    "XiaoZhi speech or network integration"
+  ],
+  "private_device_identifiers_logs_nvs_and_backups_included": false,
+  "release_date": "2026-10-21"
+}

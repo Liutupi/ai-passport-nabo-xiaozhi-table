@@ -91,12 +91,13 @@ static void cues_from_model(nabo_duel_t *u)
     m->fx_n = 0;
 }
 
-// Heartbeat during the stand-off: slow at first, faster towards the draw.
-static void heartbeat(nabo_duel_t *u, uint32_t t)
+// Wooden waiting beat: slow at first, faster towards the draw, then a quiet gap before GO.
+static void waiting_beat(nabo_duel_t *u, uint32_t t)
 {
     const nd_t *m = &u->m;
     if (m->scene != ND_DUEL || nd_phase(m, t) != ND_PH_STANDOFF) return;
     uint32_t left = since(m->cur.go_at, t) > 0 ? m->cur.go_at - t : 0;
+    if (left <= NDU_WAIT_QUIET_MS) return;
     uint32_t gap = 380 + 500 * left / (m->cur.delay ? m->cur.delay : 1);
     if (since(t, u->heart_at) >= (int32_t)gap) { u->heart_at = t; u->cues |= NDU_CUE_HEART; }
 }
@@ -150,7 +151,7 @@ void ndu_advance(nabo_duel_t *u, uint32_t now)
         nd_tick(&u->m, t);
         cues_from_model(u);
         if (crossing) drain(u, t, false);
-        heartbeat(u, t);
+        waiting_beat(u, t);
         u->ticked = t;
         if (since(t, target) >= 0) break;
     }

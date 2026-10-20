@@ -6,9 +6,13 @@
 
 分区与 NABO 定制版相同（应用 `0x10000 / 0x3f0000`，资源、文件分区不读不写），所以可以用 `tools/flash_candidate.py` 只写应用、保留 NVS 和资源分区，随时再 upgrade 回小智版。
 
+**正式版：[offline-v1.0.0](https://github.com/Liutupi/ai-passport-nabo-xiaozhi-table/releases/tag/offline-v1.0.0)，2026-10-21。** 两台均完成应用升级、回读和保留数据校验，用户确认木鱼声及赢／输动画正常。发布复用已验收原镜像，没有重新编译，应用 SHA256 为 `fb8af7fe4620104106c8e0fe29a351589ad554b7b3e68540815edb308ee745e3`。完整说明见 [发布说明](../docs/RELEASE_offline-v1.0.0.md)。
+
+等待声使用原 NABO 木鱼的 90 ms 短敲，逐渐加快，拔枪前停止新敲击；保留无风声、清楚的拔枪铃及本机胜负动画（赢吹枪、输哭脸）。
+
 ## 构建
 
-ESP-IDF 6.0.2，目标 esp32c3。依赖（LVGL 9.5.0、esp_lvgl_port 2.9.0、button 4.2.0、esp_codec_dev 1.6.2）由组件管理器按 `components/bsp/idf_component.yml` 下载。
+ESP-IDF 6.0.2，目标 esp32c3。依赖（LVGL 9.5.0、esp_lvgl_port 2.9.0、button 4.2.0、esp_codec_dev 1.6.2）由组件管理器按 `components/bsp/idf_component.yml` 下载。验收构建的配置及依赖快照为 `configs/offline-v1.0.0.sdkconfig`、`configs/offline-v1.0.0.dependencies.lock`。重新构建的字节可能因时间戳等元数据改变，不能替代 Release 中的已验收镜像。
 
 ```bash
 cd standalone
@@ -26,6 +30,8 @@ python tools/flash_candidate.py --app build/nabo-table-duel-offline.bin --sha256
 ```
 
 先完整备份 8 MB 到 `private/device/`，只写 `0x10000` 的应用，再读回全片确认其余字节未变。
+
+Windows 用户可使用 Release ZIP 内 `flash_one.bat`，每次只接一台；发行启动脚本源码保留在 `standalone/tools/flash_one.py` 和 `.bat`。在普通 Python 环境先安装 `python -m pip install -r requirements-flash.txt`。首次完整安装与已有分区的保留数据升级有所不同，详见发布说明。
 
 ## 操作
 
