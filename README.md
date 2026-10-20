@@ -1,5 +1,12 @@
 # AI Passport · NABO × 小智 · 牌桌版
 
+<!-- nabo-offline-release-announcement -->
+**新增独立离线版：NABO 牌桌＋对决 `offline-v1.0.0`（2026-10-21）。** 包含牌桌、两台 ESP-NOW 直连对决、单人练习和设置，不带小智。等待木鱼声及赢／输动画已获两台升级后的用户确认。
+
+[下载离线固件与保留数据升级包](https://github.com/Liutupi/ai-passport-nabo-xiaozhi-table/releases/tag/offline-v1.0.0) · [查看离线版源码和验收记录](https://github.com/Liutupi/ai-passport-nabo-xiaozhi-table/tree/duel)
+
+本页下文仍为**带小智的 v1.6.0 牌桌版**；该版本的 Latest 下载入口保留。请按需要选择版本。
+
 为 **FoloToy AI Passport（ESP32-C3 / 8 MB）**制作的小智定制固件，带「**NABO 牌桌**」：2–4 人的 21 点、大话骰，以及新增的 **3–8 人谁是卧底**。一台工牌传着玩，NABO 当荷官。另有 NABO 待机与对话动画、跳一跳，以及完整的设备设置。
 
 本仓库从 [ai-passport-nabo-xiaozhi-dive](https://github.com/Liutupi/ai-passport-nabo-xiaozhi-dive)（v1.3.1 深潜版）分出，保留完整历史。为给牌桌腾出空间，**移除了深潜、摇骰子、功德木鱼和蓝牙电脑快捷键**。分区表和 NVS 与此前各版兼容，配网、激活和成绩都保留；牌桌的 NABO 动画放在资源分区里，所以从其他版本切换过来时，**应用和资源两个镜像都要写**（刷写工具的 upgrade 模式会自动处理）。
