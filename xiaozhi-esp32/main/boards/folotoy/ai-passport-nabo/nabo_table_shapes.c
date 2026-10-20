@@ -322,3 +322,44 @@ void ntg_paint_cup(const ntg_op_t *op, int y, int x0, int x1, uint16_t *row)
         if (cov) row[x - x0] = nt_blend565(row[x - x0], c, cov * alpha / 255);
     }
 }
+
+// ---------- NABO DUEL backdrop ----------
+// Flat bands only (no fine gradients: they band on RGB565), as in game-art/duel/prototype.
+
+#define DUSK_HORIZON 192
+#define DUSK_STREET 262
+
+void ntg_paint_dusk(const ntg_op_t *op, int y, int x0, int x1, uint16_t *row)
+{
+    (void)op;
+    static const uint16_t SKY[4] = {C565(42, 24, 56), C565(90, 42, 62), C565(168, 68, 60), C565(224, 122, 58)};
+    static const int16_t TOWN[][4] = {{0, 168, 34, 24}, {30, 160, 26, 32}, {56, 174, 20, 18}, {150, 164, 30, 28},
+                                      {182, 154, 18, 38}, {200, 170, 40, 22}, {186, 146, 2, 8}, {40, 152, 6, 8}};
+    const uint16_t town = C565(30, 18, 24), sun = C565(255, 196, 107);
+    if (y < DUSK_HORIZON) {
+        uint16_t sky = SKY[y / 48];
+        int dy = DUSK_HORIZON - y, sun_w2 = 26 * 26 - dy * dy;   // sun: half disc sitting on the horizon
+        for (int x = x0; x < x1; x++) {
+            uint16_t c = sky;
+            int dx = x - 176;
+            if (sun_w2 >= 0 && dx * dx <= sun_w2) c = sun;
+            for (size_t k = 0; k < sizeof(TOWN) / sizeof(TOWN[0]); k++)
+                if (x >= TOWN[k][0] && x < TOWN[k][0] + TOWN[k][2] && y >= TOWN[k][1] && y < TOWN[k][1] + TOWN[k][3]) {
+                    c = town;
+                    break;
+                }
+            row[x - x0] = c;
+        }
+        return;
+    }
+    uint16_t ground = y < DUSK_STREET ? C565(122, 74, 44) : C565(92, 54, 32), dust = C565(154, 106, 64);
+    for (int x = x0; x < x1; x++) {
+        // A few dust specks in the road, 6 x 2 px, fixed.
+        bool speck = false;
+        for (int i = 0; i < 9 && !speck; i++) {
+            int sx = (i * 53 + 17) % 240, sy = 200 + (i * 29) % 56;
+            speck = x >= sx && x < sx + 6 && y >= sy && y < sy + 2;
+        }
+        row[x - x0] = speck ? dust : ground;
+    }
+}

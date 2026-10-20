@@ -10,6 +10,7 @@ The other tests run several C models over a simulated radio (latency, jitter, lo
 check the protocol end to end, plus rule tables and the wire format.
 """
 import ctypes
+import os
 import json
 import random
 import subprocess
@@ -443,6 +444,267 @@ class Rules(unittest.TestCase):
         bad_bo = bytearray(encode(samples[1]))
         bad_bo[13 + NAME_LEN] = 4
         self.assertEqual(lib.host_recv(3, 1, 0x0002, bytes(bad_bo), len(bad_bo), -40), 0)
+
+
+
+# ---------- runtime glue and renderer ----------
+
+RSOURCES = [BOARD / f for f in (
+    'nabo_duel_model.c', 'nabo_duel.c', 'nabo_table_scene_duel.c', 'nabo_table_model.c', 'nabo_table_bid.c',
+    'nabo_table_uc.c', 'nabo_uc_words.c', 'nabo_table_scene_uc.c', 'nabo_table_sprites.c', 'nabo_table_text.c',
+    'nabo_table_gfx.c', 'nabo_table_shapes.c', 'nabo_table_scene.c', 'nabo_table_scene_play.c', 'nabo_dice_render.c',
+    'nabo_table_font_12.c', 'nabo_menu_font_16.c', 'nabo_ui_font_18.c', 'nabo_table_font_24.c', 'nabo_mono_font_12.c',
+    'nabo_poster_font_28.c', 'nabo_duel_font_56.c')] + [HOST / 'duel_render_host.c']
+rlibrary = Path(temp.name) / 'duel_render.so'
+subprocess.run([CC, '-std=gnu11', '-O2', '-shared', SHARED_EXPORT, '-Wall', '-Wextra', '-Werror',
+                '-Wno-missing-field-initializers', '-I', str(ROOT / 'tests/table_host'), '-I', str(BOARD)]
+               + [str(s) for s in RSOURCES] + ['-lm', '-o', str(rlibrary)], check=True)
+r = ctypes.CDLL(str(rlibrary))
+r.rh_init.argtypes = [ctypes.c_char_p]
+r.rh_new.argtypes = [I, I, U, I, I, I, U]
+r.rh_key.argtypes = [I, I, I, U]
+r.rh_rx.argtypes = [I, I, ctypes.c_char_p, I, I, U]
+r.rh_advance.argtypes = [I, U]
+r.rh_go_pending.argtypes = [I, ctypes.POINTER(U)]
+r.rh_flipped.argtypes = [I, U]
+r.rh_state.argtypes = [I, ctypes.POINTER(ctypes.c_longlong)]
+r.rh_out.argtypes = [I, ctypes.c_char_p]
+r.rh_cues.restype = U
+r.rh_frame.argtypes = [ctypes.POINTER(ctypes.c_uint16)]
+DUEL_PACK = BOARD / 'table_assets/duel_sprites.bin'
+DUEL_BUFFER = r.rh_init(str(DUEL_PACK).encode())
+SHOTS = Path(os.environ.get('DUEL_SHOTS') or (Path(temp.name) / 'shots'))   # DUEL_SHOTS=dir keeps the screenshots
+LAG = 30
+
+
+def rstate(i):
+    v = (ctypes.c_longlong * 16)()
+    r.rh_state(i, v)
+    keys = 'scene phase me opp round has_cur me_has me_k me_r opp_has opp_k opp_r resolved go_at go_shown ticked'
+    return dict(zip(keys.split(), list(v)))
+
+
+def frame_png(path):
+    import zlib, struct
+    buf = (ctypes.c_uint16 * (240 * 320))()
+    r.rh_frame(buf)
+    raw = bytearray()
+    for y in range(320):
+        raw.append(0)
+        for x in range(240):
+            v = buf[y * 240 + x]
+            raw += bytes(((v >> 11) << 3, ((v >> 5) & 63) << 2, (v & 31) << 3))
+    chunk = lambda t, d: struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xFFFFFFFF)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', 240, 320, 8, 2, 0, 0, 0))
+                     + chunk(b'IDAT', zlib.compress(bytes(raw))) + chunk(b'IEND', b''))
+
+
+class Badge:
+    """One badge running the glue as nabo_table.c does: frames every 33 ms, the draw flipped by
+    a timer at go_at (+flip_delay), PING answered and stamped in the radio layer."""
+
+    def __init__(self, i, mac, off=0, bot=None, flip_delay=1, **kw):
+        self.i, self.mac, self.off, self.bot, self.flip_delay = i, mac, off, bot, flip_delay
+        self.next_frame = 0
+        self.flips = []
+        self.shots = {}
+        r.rh_new(i, mac, kw.get('entropy', mac * 40503 & 0xFFFFFFFF), kw.get('bo', 3), int(kw.get('fake', True)),
+                 kw.get('ai', 1), self.off & 0xFFFFFFFF)
+
+    def local(self, g):
+        return (g + self.off) & 0xFFFFFFFF
+
+
+class GlueAir:
+    def __init__(self, latency=2, jitter=1, seed=3):
+        self.g, self.badges, self.queue, self.n = 0, [], [], 0
+        self.rng = random.Random(seed)
+        self.latency, self.jitter = latency, jitter
+        self.pending_keys = []
+
+    def add(self, b):
+        self.badges.append(b)
+        return b
+
+    def press(self, b, k, at_g, down=True):
+        self.pending_keys.append((at_g, b, k, down))
+
+    def send(self, b, wire, to):
+        targets = [x for x in self.badges if x is not b] if to < 0 else [x for x in self.badges if x.mac == to]
+        for x in targets:
+            self.n += 1
+            lat = max(1, round(self.latency + (self.rng.random() * 2 - 1) * self.jitter))
+            self.queue.append((self.g + lat, self.n, x, b.mac, wire))
+
+    def step(self, ms, render_every=0, shots=None):
+        for _ in range(ms):
+            self.g += 1
+            for at, b, k, down in [p for p in self.pending_keys if p[0] <= self.g]:
+                r.rh_key(b.i, KEYS[k], int(down), b.local(at))
+            self.pending_keys = [p for p in self.pending_keys if p[0] > self.g]
+            due = sorted((q for q in self.queue if q[0] <= self.g), key=lambda q: (q[0], q[1]))
+            self.queue = [q for q in self.queue if q[0] > self.g]
+            for _, _, x, frm, wire in due:
+                st = rstate(x.i)
+                reply = x.ping_reply(wire)   # radio layer: PING answered at once, never reaches the model
+                if reply is not None:
+                    if reply:
+                        self.send(x, reply, frm)
+                    continue
+                r.rh_rx(x.i, frm, wire, len(wire), -45, x.local(self.g))
+            for b in self.badges:
+                go = U()
+                if r.rh_go_pending(b.i, ctypes.byref(go)) and b.local(self.g) == ((go.value + b.flip_delay) & 0xFFFFFFFF):
+                    r.rh_flipped(b.i, b.local(self.g))   # the timer fired: panel inverted now
+                    b.flips.append(self.g)
+                    if b.bot:
+                        b.bot(self, b)
+                if self.g >= b.next_frame:
+                    b.next_frame = self.g + 33
+                    r.rh_advance(b.i, b.local(self.g))
+                    for k in range(r.rh_take_out(b.i)):
+                        wire = ctypes.create_string_buffer(64)
+                        ln = r.rh_out(k, wire)
+                        data = bytearray(wire.raw[:ln])
+                        if data[3] == TYPE_ID['PING']:
+                            data[14:18] = b.local(self.g).to_bytes(4, 'little')   # ndu_stamp_ping at send
+                        self.send(b, bytes(data), r.rh_out_to(k))
+                    if render_every and (self.g // 33) % render_every == 0:
+                        res = r.rh_draw(b.i, 1)
+                        assert res >= 0, f'render {"mismatch" if res == -1 else "overflow"} at g={self.g}'
+                        st = rstate(b.i)
+                        if shots is not None:
+                            name = f"{b.i}_{SCENES[st['scene']]}_{PHASES[st['phase']] if st['phase'] >= 0 else ''}"
+                            if name not in shots:
+                                shots[name] = SHOTS / f'{name}.png'
+                                frame_png(shots[name])
+
+    def session_of(self, b):
+        return None
+
+
+def badge_ping_reply(air, b):
+    def reply(wire):
+        if wire[3] != TYPE_ID['PING']:
+            return None
+        # The guest answers with its own receive time, in the session it is linked to (any, here).
+        c = decode(wire)
+        pong = dict(c, type='PONG', seq=0, ack=0, t2=b.local(air.g))
+        return encode(pong)
+    return reply
+
+
+def react(ms):
+    def act(air, b):
+        air.press(b, 'ok', air.g + ms)
+        air.press(b, 'ok', air.g + ms + 40, False)
+    return act
+
+
+class Runtime(unittest.TestCase):
+    def test_sprite_buffer_budget(self):
+        self.assertGreater(DUEL_BUFFER, 0, 'duel sprite pack failed to load')
+        self.assertLessEqual(DUEL_BUFFER, 22 * 1024)   # one index buffer for the biggest animation
+        self.assertLess(DUEL_PACK.stat().st_size, 500 * 1024)
+
+    def solo(self, reaction=230, flip_delay=1, early=None):
+        air = GlueAir()
+        b = air.add(Badge(0, 0x3F2A, off=1000, bot=None if early else react(reaction), flip_delay=flip_delay, bo=5, ai=0))
+        b.ping_reply = lambda w: None
+        air.step(100)
+        r.rh_set_sel(0, 1)
+        air.press(b, 'ok', air.g + 1)
+        air.press(b, 'ok', air.g + 20, False)
+        if early is not None:
+            # Press between go_at and the flip: never a reaction.
+            def watch(air_, b_):
+                pass
+            b.bot = watch
+        return air, b
+
+    def test_solo_reaction_counts_from_the_flip(self):
+        air, b = self.solo(reaction=230, flip_delay=7)
+        hits = []
+        for _ in range(60):
+            air.step(500)
+            st = rstate(0)
+            if st['me_has'] and st['me_k'] == 1 and (not hits or hits[-1][1] != st['go_at']):
+                hits.append((st['me_r'], st['go_at'], st['go_shown']))
+            if SCENES[st['scene']] == 'end':
+                break
+        self.assertTrue(hits)
+        for ms, go_at, shown in hits:
+            self.assertEqual(ms, 230)
+            self.assertEqual((shown - go_at) & 0xFFFFFFFF, 7, 'reaction counts from the actual flip')
+        self.assertEqual(SCENES[rstate(0)['scene']], 'end')
+
+    def test_press_before_the_flip_is_a_foul(self):
+        air = GlueAir()
+        b = air.add(Badge(0, 0x3F2A, off=50, flip_delay=40, bo=1, ai=0))
+        b.ping_reply = lambda w: None
+        air.step(100)
+        r.rh_set_sel(0, 1)
+        air.press(b, 'ok', air.g + 1)
+        air.press(b, 'ok', air.g + 20, False)
+        air.step(200)
+        go = U()
+        for _ in range(200):
+            air.step(10)
+            if r.rh_go_pending(0, ctypes.byref(go)):
+                break
+        target_g = ((go.value - b.off) & 0xFFFFFFFF) + 10   # 10 ms after go_at, 30 ms before the flip
+        air.press(b, 'ok', target_g)
+        air.press(b, 'ok', target_g + 30, False)
+        air.step(target_g - air.g + 200)
+        st = rstate(0)
+        self.assertTrue(st['me_has'])
+        self.assertEqual(st['me_k'], 2, 'pressed before the screen flipped: foul')
+
+    def test_online_through_the_glue(self):
+        # Badges with different clocks, 33 ms frames, a model 30 ms behind, the draw flipped by a
+        # timer: both screens still flip within 2 ms, and every result agrees.
+        air = GlueAir(latency=2, jitter=1)
+        a = air.add(Badge(0, 0x3F2A, off=7000, bot=react(240), flip_delay=1))
+        b = air.add(Badge(1, 0x1B07, off=0x7FFF0000, bot=react(290), flip_delay=1))
+        a.ping_reply = badge_ping_reply(air, a)
+        b.ping_reply = badge_ping_reply(air, b)
+        air.step(100)
+        air.press(a, 'ok', air.g + 1); air.press(a, 'ok', air.g + 20, False)    # A: online
+        air.press(b, 'ok', air.g + 1); air.press(b, 'ok', air.g + 20, False)    # B: online
+        air.step(1500)
+        air.press(a, 'ok', air.g + 1); air.press(a, 'ok', air.g + 20, False)    # A invites B (row 0)
+        air.step(600)
+        self.assertEqual(SCENES[rstate(1)['scene']], 'invited')
+        air.press(b, 'ok', air.g + 1); air.press(b, 'ok', air.g + 20, False)    # B accepts
+        shots = {}
+        air.step(40000, render_every=1, shots=shots)
+        sa, sb = rstate(0), rstate(1)
+        self.assertEqual(SCENES[sa['scene']], 'end')
+        self.assertEqual(SCENES[sb['scene']], 'end')
+        self.assertEqual((sa['me'], sa['opp']), (2, 0))
+        self.assertEqual((sb['me'], sb['opp']), (0, 2))
+        self.assertEqual(len(a.flips), len(b.flips))
+        for x, y in zip(a.flips, b.flips):
+            self.assertLessEqual(abs(x - y), 2, f'draw flips {x} vs {y}')
+        self.assertGreaterEqual(len(shots), 8)
+        Runtime.shots = shots
+
+    def test_every_screen_renders(self):
+        # Cover, lobby with peers, practice to the end: no overflow, dirty rects == full redraw.
+        air = GlueAir()
+        b = air.add(Badge(0, 0x3F2A, off=100, bot=react(200), bo=3, ai=2))
+        b.ping_reply = lambda w: None
+        shots = {}
+        air.step(300, render_every=1, shots=shots)
+        for sel in range(6):
+            r.rh_set_sel(0, sel)
+            air.step(66, render_every=1)
+        r.rh_set_sel(0, 1)
+        air.press(b, 'ok', air.g + 1); air.press(b, 'ok', air.g + 20, False)
+        air.step(40000, render_every=1, shots=shots)
+        self.assertEqual(SCENES[rstate(0)['scene']], 'end')
+        r.rh_set_sel(0, 5)
 
 
 if __name__ == '__main__':

@@ -31,8 +31,13 @@ FONTS = {
     # NABO TABLE: 12 px for hints and labels, 24 px for a few big words.
     'nabo_table_font_12': ('sans', 12, 4),
     'nabo_table_font_24': ('sans', 24, 4),
+    # NABO DUEL: the shout on the draw.
+    'nabo_duel_font_56': ('sans', 56, 4),
 }
 TABLE_24 = '玩家 12345678获胜输了暂停开！谁是卧底出局平民胜利'
+# NABO DUEL headlines (nabo_table_scene_duel.c) drawn with the 24 px font.
+DUEL_24 = '邀你对决赢了这局抢跑慢一步都太急睡着？模样！下场对手准备……暂停认输离开信号断'
+DUEL_56 = '拔！？抢跑'
 
 
 def existing_menu_glyphs():
@@ -73,7 +78,7 @@ def source_glyphs():
 def table_24_symbols():
     """Big table words plus every character of the who-is-the-undercover word list."""
     from generate_uc_words import word_chars
-    return ''.join(sorted(set(TABLE_24) | set(word_chars())))
+    return ''.join(sorted(set(TABLE_24) | set(DUEL_24) | set(word_chars())))
 
 
 LINE_HEIGHT = {'nabo_menu_font_16': (19, 4), 'nabo_ui_font_18': (22, 5)}
@@ -122,6 +127,9 @@ def main():
             digest = convert(args.converter, font, name, size, bpp, '0x20-0x7E', symbols)
         elif name == 'nabo_table_font_24':
             symbols = table_24_symbols()
+            digest = convert(args.converter, font, name, size, bpp, None, symbols)
+        elif name == 'nabo_duel_font_56':
+            symbols = DUEL_56
             digest = convert(args.converter, font, name, size, bpp, None, symbols)
         elif name == 'nabo_mono_font_12':
             digest = convert(args.converter, font, name, size, bpp, '0x20-0x7E')

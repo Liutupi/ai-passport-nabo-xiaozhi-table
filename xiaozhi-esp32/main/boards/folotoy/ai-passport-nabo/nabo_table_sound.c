@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "nabo_duel.h"
 #include "nabo_table_model.h"
 
 #define SR 16000
@@ -129,6 +130,31 @@ void nt_sound_events(nt_sound_t *s, uint32_t e)
         static const int NOTES[4] = {523, 659, 784, 1047};
         for (int i = 0; i < 4; i++) tone(s, NTV_BELL, NOTES[i], 700, (uint32_t)(i * 90), 56);
     }
+}
+
+void nt_sound_duel(nt_sound_t *s, uint32_t c, uint32_t wind_ms)
+{
+    // Same voices as the table, tuned after game-art/duel/prototype (playFx / ambient).
+    if (c & NDU_CUE_TICK) knock1(s, 20, 0, 128);
+    if (c & NDU_CUE_INVITE) tone(s, NTV_BELL, 1200, 220, 0, 64);
+    if (c & NDU_CUE_READY) knock1(s, 30, 0, 110);
+    if (c & NDU_CUE_WIND) noise(s, wind_ms > 6000 ? 6000 : wind_ms, 400, 0, 0, 500, 0, 40);   // low wind until the draw
+    if (c & NDU_CUE_HEART) tone(s, NTV_THUMP, 58, 160, 0, 230);
+    if (c & NDU_CUE_FAKE) noise(s, 60, 1, 4, 1800, 3200, 0, 150);
+    if (c & NDU_CUE_GO) {   // the bell of the draw
+        tone(s, NTV_BELL, 1760, 500, 0, 110);
+        tone(s, NTV_BELL, 2640, 350, 0, 50);
+    }
+    if (c & NDU_CUE_SHOT) noise(s, 120, 1, 2, 800, 3000, 0, 170);       // water pistol
+    if (c & NDU_CUE_FOUL) tone(s, NTV_THUMP, 140, 350, 0, 120);
+    if (c & NDU_CUE_WIN) {
+        noise(s, 400, 5, 2, 400, 1800, 0, 140);                        // splash on the other side
+        static const int NOTES[3] = {523, 659, 784};
+        for (int i = 0; i < 3; i++) tone(s, NTV_BELL, NOTES[i], 260, (uint32_t)(250 + i * 120), 60);
+    }
+    if (c & NDU_CUE_LOSE) noise(s, 500, 5, 2, 300, 1500, 0, 150);
+    if (c & NDU_CUE_REPLAY) knock1(s, 24, 0, 100);
+    if (c & NDU_CUE_LEFT) tone(s, NTV_BELL, 523, 400, 0, 50);
 }
 
 static int32_t sine(uint32_t phase)   // phase: 16 bits per turn -> Q15

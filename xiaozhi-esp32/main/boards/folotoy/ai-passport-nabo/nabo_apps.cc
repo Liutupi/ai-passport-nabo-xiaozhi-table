@@ -305,12 +305,14 @@ static void diagnostic(const char* line) {
             NaboApp app;
         } aliases[] = {{"home", NABO_HOME},     {"tools", NABO_TOOLS}, {"settings", NABO_SETTINGS},
                        {"table", NABO_TABLE},   {"jump", NABO_JUMP},   {"status", NABO_STATUS},
-                       {"undercover", NABO_TABLE}};
+                       {"undercover", NABO_TABLE}, {"duel", NABO_TABLE}};
         bool found = false;
         for (const auto& item : aliases)
             if (!strcmp(name, item.name)) {
                 if (!strcmp(name, "undercover"))
                     nabo_table_start_on(NABO_TABLE_START_UNDERCOVER);
+                if (!strcmp(name, "duel"))
+                    nabo_table_start_on(NABO_TABLE_START_DUEL);
                 nabo_apps_open(item.app);
                 found = true;
                 break;
@@ -368,8 +370,11 @@ static void diagnostic(const char* line) {
                 nabo_table_inject(k);
     } else if (!strcmp(line, ">table.capture")) {
         nabo_table_capture();
+    } else if (!strcmp(line, ">table.duel.test")) {
+        nabo_table_duel_test(true);   // scripted duel: never touch the record or the saved settings
+        printf("\n@duel test mode\n");
     } else if (!strcmp(line, ">table.status")) {
-        char text[384];
+        static char text[1024];   // with the duel block (serial task only)
         nabo_table_status(text, sizeof(text));
         printf("\n@table %s\n", text);
     } else if (!strcmp(line, ">apps.capture")) {
@@ -658,6 +663,12 @@ static void change_page(NaboApp next) {
         void* pack = nullptr;
         size_t pack_size = 0;
         bool have_pack = Assets::GetInstance().GetAssetData("table_sprites.bin", pack, pack_size);
+        // NABO DUEL's sprites; an older assets partition without them simply has no duel.
+        void* duel_pack = nullptr;
+        size_t duel_size = 0;
+        if (!Assets::GetInstance().GetAssetData("duel_sprites.bin", duel_pack, duel_size))
+            duel_pack = nullptr, duel_size = 0;
+        nabo_table_set_duel_pack(duel_pack, duel_size);
         auto display = static_cast<NaboDisplay*>(Board::GetInstance().GetDisplay());
         esp_lcd_panel_io_handle_t io;
         esp_lcd_panel_handle_t panel;
@@ -1005,7 +1016,8 @@ void nabo_apps_register_tools() {
     server.AddTool(
         "self.apps.open",
         "打开工牌内置程序。app "
-        "可用：跳一跳(jump)、NABO 牌桌(table，21 点、大话骰)、谁是卧底(undercover，在牌桌里)"
+        "可用：跳一跳(jump)、NABO 牌桌(table，21 点、大话骰)、谁是卧底(undercover，在牌桌里)、"
+        "NABO 对决(duel，两台工牌联机拔枪，也能单人练习，在牌桌里)"
         "、设置(settings)、工具(tools)。进入程序会暂停语音对话；双击上键返回上一级，长按上键回到 "
         "NABO "
         "恢复小智。",
@@ -1022,13 +1034,17 @@ void nabo_apps_register_tools() {
                 app = NABO_TABLE;
                 nabo_table_start_on(NABO_TABLE_START_UNDERCOVER);
             }
+            else if (name == "duel" || name == "对决" || name == "联机对决" || name == "快枪手") {
+                app = NABO_TABLE;
+                nabo_table_start_on(NABO_TABLE_START_DUEL);
+            }
             else if (name == "settings" || name == "设置")
                 app = NABO_SETTINGS;
             else if (name == "tools" || name == "工具")
                 app = NABO_TOOLS;
             else
                 return std::unexpected(
-                    "Unknown app. Use jump, table, undercover, settings or tools.");
+                    "Unknown app. Use jump, table, undercover, duel, settings or tools.");
             nabo_apps_open(app, 900);
             return std::string("已安排打开 ") + name + "。程序中使用实体按键；长按上键返回小智。";
         });
@@ -1041,7 +1057,9 @@ bool nabo_apps_voice_command(const char* transcript) {
         return false;
     if (!strcmp(name, "undercover"))
         nabo_table_start_on(NABO_TABLE_START_UNDERCOVER);
-    NaboApp target = !strcmp(name, "table") || !strcmp(name, "undercover") ? NABO_TABLE
+    if (!strcmp(name, "duel"))
+        nabo_table_start_on(NABO_TABLE_START_DUEL);
+    NaboApp target = !strcmp(name, "table") || !strcmp(name, "undercover") || !strcmp(name, "duel") ? NABO_TABLE
                      : !strcmp(name, "jump")     ? NABO_JUMP
                      : !strcmp(name, "settings") ? NABO_SETTINGS
                                                  : NABO_TOOLS;

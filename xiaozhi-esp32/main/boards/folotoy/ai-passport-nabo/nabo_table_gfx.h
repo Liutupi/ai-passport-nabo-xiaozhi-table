@@ -34,6 +34,7 @@ typedef enum {
     NTG_CUP,
     NTG_TRI,      // small up / down arrow
     NTG_GLOW,     // soft round highlight behind a die
+    NTG_DUSK,     // NABO DUEL: dusk sky, town silhouette, street (nabo_table_shapes.c)
 } ntg_kind_t;
 
 typedef struct {
@@ -88,6 +89,7 @@ bool ntg_text(ntg_t *g, const lv_font_t *font, const char *utf8, int x, int y, n
 bool ntg_card(ntg_t *g, int x, int y, int w, int h, int rank, int suit, bool face, int squash);
 bool ntg_die(ntg_t *g, int value, int cx, int cy, int half, int yaw_deg, bool dim);
 bool ntg_glow(ntg_t *g, int cx, int cy, int r, uint16_t color);
+bool ntg_dusk(ntg_t *g);
 bool ntg_sprite(ntg_t *g, int anim, int frame, int ax, int ay);
 bool ntg_cup(ntg_t *g, int cx, int by, int alpha);
 bool ntg_tri(ntg_t *g, int cx, int cy, int size, bool up, uint16_t color);
@@ -100,6 +102,7 @@ void ntg_paint_card(const ntg_t *g, const ntg_op_t *op, int y, int x0, int x1, u
 void ntg_paint_cup(const ntg_op_t *op, int y, int x0, int x1, uint16_t *row);
 void ntg_paint_tri(const ntg_op_t *op, int y, int x0, int x1, uint16_t *row);
 void ntg_paint_glow(const ntg_op_t *op, int y, int x0, int x1, uint16_t *row);
+void ntg_paint_dusk(const ntg_op_t *op, int y, int x0, int x1, uint16_t *row);
 
 static inline uint16_t ntg_rgb(int r, int g, int b) { return (uint16_t)((r >> 3) << 11 | (g >> 2) << 5 | b >> 3); }
 

@@ -151,6 +151,14 @@ bool ntg_sprite(ntg_t *g, int anim, int frame, int ax, int ay)
     return true;
 }
 
+bool ntg_dusk(ntg_t *g)
+{
+    ntg_op_t *op = add(g, NTG_DUSK, 0, 0, NTG_W, NTG_H);
+    if (!op) return false;
+    seal(op, 0xD05C);
+    return true;
+}
+
 bool ntg_cup(ntg_t *g, int cx, int by, int alpha)
 {
     ntg_op_t *op = add(g, NTG_CUP, cx - 26, by - 52, cx + 27, by + 4);
@@ -226,6 +234,7 @@ static void paint(ntg_t *g, const ntg_op_t *op, int y, int x0, int x1, uint16_t 
     case NTG_CUP: ntg_paint_cup(op, y, x0, x1, row); break;
     case NTG_TRI: ntg_paint_tri(op, y, x0, x1, row); break;
     case NTG_GLOW: ntg_paint_glow(op, y, x0, x1, row); break;
+    case NTG_DUSK: ntg_paint_dusk(op, y, x0, x1, row); break;
     default: break;
     }
 }
