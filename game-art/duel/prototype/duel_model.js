@@ -175,7 +175,7 @@ class DuelBadge {
   _note(s) { this.log.push(this.t + ' ' + s); if (this.log.length > 60) this.log.shift(); }
 
   // ---------- 封面 ----------
-  coverItems() { return ['online', 'solo', 'bo', 'fake', 'ai']; }
+  coverItems() { return ['online', 'solo', 'bo', 'fake', 'ai', 'back']; }   // back：回到牌桌封面
   _key_cover(k) {
     const n = this.coverItems().length;
     if (k === 'up') this.sel = (this.sel + n - 1) % n;
@@ -187,6 +187,7 @@ class DuelBadge {
       else if (it === 'bo') this.set.bo = this.set.bo === 1 ? 3 : this.set.bo === 3 ? 5 : 1;
       else if (it === 'fake') this.set.fake = !this.set.fake;
       else if (it === 'ai') this.set.ai = (this.set.ai + 1) % AI.length;
+      else if (it === 'back') this.exitReq = true;   // 固件：牌桌任务看到后切回牌桌
       this._fx('tick');
     }
   }

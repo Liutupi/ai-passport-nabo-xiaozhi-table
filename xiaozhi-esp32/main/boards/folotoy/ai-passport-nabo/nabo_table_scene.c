@@ -162,7 +162,7 @@ int nt_bid_label(ntg_t *g, const nt_fonts_t *f, int x, int y, int q, int face, n
 
 static void scene_menu(ntg_t *g, const nt_t *m, const nt_fonts_t *f)
 {
-    char label[NT_MENU_COUNT][24] = {"21 点", "大话骰", "谁是卧底"};
+    char label[NT_MENU_COUNT][24] = {"21 点", "大话骰", "谁是卧底", "对决 · 联机"};
     snprintf(label[NT_MENU_PLAYERS], sizeof(label[0]), "%d 人", m->cfg.players);
     snprintf(label[NT_MENU_TARGET], sizeof(label[0]), "抢 %d / 罚 %d", m->cfg.target, m->cfg.target);
     ntg_bg(g, 168);
@@ -170,9 +170,9 @@ static void scene_menu(ntg_t *g, const nt_t *m, const nt_fonts_t *f)
     nt_txt(g, f->poster, "NABO", 86, 189, NT_ALIGN_CENTER, NT_COL_FELT_TEXT);
     nt_txt(g, f->f18, "牌桌", 154, 190, NT_ALIGN_CENTER, NT_COL_BRASS);
     for (int i = 0; i < NT_MENU_COUNT; i++) {
-        int y = 211 + i * 20;
+        int y = 208 + i * 17;
         bool sel = m->menu == i;
-        if (sel) ntg_rect(g, 56, y - 10, 128, 20, 10, NT_COL_BRASS, 255, 0, 0);
+        if (sel) ntg_rect(g, 56, y - 9, 128, 18, 9, NT_COL_BRASS, 255, 0, 0);
         nt_txt(g, f->f16, label[i], NTG_W / 2, y, NT_ALIGN_CENTER, sel ? NT_COL_INK : NT_COL_FELT_TEXT);
     }
     nt_hint(g, f, "↑↓ 选择 · OK 进入 · 双击上 退出");

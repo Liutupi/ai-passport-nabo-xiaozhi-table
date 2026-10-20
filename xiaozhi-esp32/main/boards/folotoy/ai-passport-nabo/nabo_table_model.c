@@ -9,7 +9,8 @@
 static const float ANIM_DEFAULT[NT_ANIM_COUNT] = {2, 0.9f, 0.33f, 0.5f, 0.25f, 0.25f, 1.4f, 0.45f, 0.35f, 0.4f, 1, 0.4f};
 static const bool ANIM_LOOP[NT_ANIM_COUNT] = {1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0};
 static const bool ANIM_HOLD[NT_ANIM_COUNT] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1};
-static const nt_anim_t MENU_ANIM[NT_MENU_COUNT] = {NT_ANIM_SHUFFLE, NT_ANIM_SHAKE, NT_ANIM_COVER, NT_ANIM_IDLE, NT_ANIM_IDLE};
+static const nt_anim_t MENU_ANIM[NT_MENU_COUNT] = {NT_ANIM_SHUFFLE, NT_ANIM_SHAKE, NT_ANIM_COVER, NT_ANIM_IDLE, NT_ANIM_IDLE,
+                                                   NT_ANIM_IDLE};
 
 #define DEAL_GAP 0.35        // seconds between dealt cards
 #define BJ_FLIP0 0.5         // reveal: first card starts turning
@@ -337,6 +338,7 @@ static void menu_key(nt_t *g, nt_key_t k)
         return;
     }
     if (g->menu == NT_MENU_UC) { nt_uc_setup(g); return; }
+    if (g->menu == NT_MENU_DUEL) { g->events |= NT_EV_DUEL; return; }
     start_match(g, g->menu == NT_MENU_BJ ? NT_GAME_BJ : NT_GAME_DICE);
 }
 

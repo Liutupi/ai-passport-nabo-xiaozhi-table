@@ -288,8 +288,9 @@ function render(key, b, n) {
     text(ctx, 'DUEL', 120, 58, { size: 40, font: F_DISP, weight: 400, color: C.brass, stroke: 6 });
     text(ctx, '对 决', 120, 86, { size: 18, weight: 900 });
     text(ctx, b.best ? '个人最快 ' + fmt({ k: 'hit', r: b.best }) : '屏幕反色时按 OK', 120, 108, { size: 11, color: C.muted, weight: 400, font: b.best ? F_MONO : F_BODY });
-    const names = { online: ['联机对战', ''], solo: ['单人练习', ''], bo: ['局数', BO[b.set.bo]], fake: ['虚晃', b.set.fake ? '开' : '关'], ai: ['练习对手', D.AI[b.set.ai].name] };
-    sel(ctx, b.coverItems().map(k => names[k]), 150, b.sel, { lh: 32 });
+    const names = { online: ['联机对战', ''], solo: ['单人练习', ''], bo: ['局数', BO[b.set.bo]], fake: ['虚晃', b.set.fake ? '开' : '关'], ai: ['练习对手', D.AI[b.set.ai].name], back: ['返回牌桌', ''] };
+    if (b.exitReq) { b.exitReq = false; b.toast = { text: '工牌上会回到牌桌封面', until: t + 1500 }; }
+    sel(ctx, b.coverItems().map(k => names[k]), 136, b.sel, { lh: 28 });
   } else if (s === 'lobby' || s === 'inviting' || s === 'invited') {
     ctx.fillStyle = C.shade; ctx.fillRect(0, 0, 240, 320);
     // 雷达

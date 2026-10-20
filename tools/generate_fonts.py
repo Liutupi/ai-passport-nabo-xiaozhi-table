@@ -51,7 +51,8 @@ def table_glyphs():
     """Non-ASCII code points used by the NABO TABLE sources."""
     chars = set()
     for path in sorted(BOARD.glob('nabo_table_*.c')):
-        if not path.name.startswith('._'):
+        # Generated fonts list their own glyphs in comments: never feed them back in.
+        if not path.name.startswith('._') and not re.match(r'nabo_\w+_font_\d+\.c$', path.name):
             chars.update(ord(c) for c in path.read_text('utf-8') if ord(c) > 0x7e)
     return {c for c in chars if c < 0x2500 or 0x3000 <= c <= 0x9fff or 0xff00 <= c <= 0xffef}
 
@@ -62,7 +63,7 @@ def source_glyphs():
         # The undercover word list is drawn only with the 24 px table font (see table_24_symbols).
         if path.name.startswith('._') or path.name in ('nabo_menu_font_16.c', 'nabo_ui_font_18.c', 'nabo_uc_words.c'):
             continue
-        if re.match(r'nabo_(poster|mono)_font_\d+\.c$', path.name):
+        if re.match(r'nabo_\w+_font_\d+\.c$', path.name):   # generated fonts (their comments list glyphs)
             continue
         chars.update(ord(c) for c in path.read_text('utf-8') if ord(c) > 0x7e)
     # Box drawing / emoji never belong in the menu font.

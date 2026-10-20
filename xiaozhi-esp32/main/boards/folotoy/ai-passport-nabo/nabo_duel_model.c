@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-const nd_ai_t ND_AI[3] = {{330, 40, 50, "新手"}, {260, 30, 30, "老手"}, {205, 20, 10, "神枪"}};
+const nd_ai_t ND_AI[3] = {{330, 40, 50}, {260, 30, 30}, {205, 20, 10}};
 
 static const uint8_t BCAST_NONE[ND_MAC_LEN] = {0};
 
@@ -183,6 +183,7 @@ static void key_cover(nd_t *d, nd_key_t k)
         case ND_COVER_BO: d->set.bo = d->set.bo == 1 ? 3 : d->set.bo == 3 ? 5 : 1; break;
         case ND_COVER_FAKE: d->set.fake = !d->set.fake; break;
         case ND_COVER_AI: d->set.ai = (uint8_t)((d->set.ai + 1) % 3); break;
+        case ND_COVER_BACK: d->exit_req = true; break;
         }
         fx(d, ND_FX_TICK, 0);
     }

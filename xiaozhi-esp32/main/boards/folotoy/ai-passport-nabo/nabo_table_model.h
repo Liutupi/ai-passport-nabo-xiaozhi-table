@@ -27,7 +27,8 @@ typedef enum {
 } nt_scene_t;
 
 typedef enum { NT_GAME_NONE, NT_GAME_BJ, NT_GAME_DICE, NT_GAME_UC } nt_game_t;
-typedef enum { NT_MENU_BJ, NT_MENU_DICE, NT_MENU_UC, NT_MENU_PLAYERS, NT_MENU_TARGET, NT_MENU_COUNT } nt_menu_item_t;
+// NT_MENU_DUEL hands the badge over to NABO DUEL (nabo_duel.c); the table model only raises NT_EV_DUEL.
+typedef enum { NT_MENU_BJ, NT_MENU_DICE, NT_MENU_UC, NT_MENU_DUEL, NT_MENU_PLAYERS, NT_MENU_TARGET, NT_MENU_COUNT } nt_menu_item_t;
 
 // NABO's dealer animations. The renderer picks the sprite (e.g. SHUFFLE is the card spread on
 // the cover and the cut at the start of a round; POINT with mirror set means point right).
@@ -50,6 +51,7 @@ enum {
     NT_EV_LIFT = 1 << 9,      // cups lifted at the reveal
     NT_EV_WIN = 1 << 10,
     NT_EV_SETTINGS = 1 << 11, // the player count or the target changed: persist them
+    NT_EV_DUEL = 1 << 12,     // "对决 · 联机" chosen on the cover: switch to NABO DUEL
 };
 
 typedef struct {

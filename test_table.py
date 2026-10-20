@@ -182,7 +182,7 @@ def bj_round(hands):
 class MultiPlayer(unittest.TestCase):
     def test_player_count_cycles_and_asks_to_persist(self):
         start({'target': 3, 'dicePer': 5, 'minOpen': 2, 'wild': True}, 1)
-        for _ in range(3):
+        for _ in range(4):
             lib.host_key(KEYS['down'])             # the player-count item
         lib.host_events()
         seen = []

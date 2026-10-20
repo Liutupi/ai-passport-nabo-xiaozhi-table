@@ -842,6 +842,7 @@ const MENU = [
   { id: 'bj', label: () => '21 点', anim: 'shuffle' },
   { id: 'dice', label: () => '大话骰', anim: 'shake' },
   { id: 'uc', label: () => '谁是卧底', anim: 'cover' },
+  { id: 'duel', label: () => '对决 · 联机', anim: 'idle' },   // 工牌上切到 NABO 对决（game-art/duel/prototype）
   { id: 'players', label: () => `${Cfg.players} 人`, anim: 'idle' },
   { id: 'target', label: () => `抢 ${Cfg.target} / 罚 ${Cfg.target}`, anim: 'idle' },
 ];
@@ -851,8 +852,8 @@ function drawMenu() {
   text('NABO', W / 2 - 34, 189, { size: 22, font: F_DISP, color: C.card, align: 'center' });
   text('牌桌', W / 2 + 34, 190, { size: 20, weight: 700, color: C.brass, align: 'center' });
   MENU.forEach((m, i) => {
-    const y = 211 + i * 20, sel = G.menu === i;
-    if (sel) { rr(56, y - 10, W - 112, 20, 10); ctx.fillStyle = C.brass; ctx.fill(); }
+    const y = 208 + i * 17, sel = G.menu === i;
+    if (sel) { rr(56, y - 9, W - 112, 18, 9); ctx.fillStyle = C.brass; ctx.fill(); }
     text(m.label(), W / 2, y + 1, { size: 14, weight: 700, color: sel ? C.ink : C.card, align: 'center' });
   });
   hint('↑↓ 选择 · OK 进入');
@@ -865,6 +866,7 @@ function menuKey(k) {
   if (id === 'target') { Cfg.target = Cfg.target >= 7 ? 3 : Cfg.target + 2; save('table.settings', Cfg); syncPanel(); return; }
   if (id === 'players') { Cfg.players = Cfg.players >= 4 ? 2 : Cfg.players + 1; save('table.settings', Cfg); syncPanel(); return; }
   if (id === 'uc') { ucSetup(); return; }
+  if (id === 'duel') { log('对决在 game-art/duel/prototype 里玩'); return; }
   startMatch(id);
 }
 function publicInfo() {
@@ -913,7 +915,7 @@ function drawEnd() {
   }
   choices(290, ['再来一场', '回封面'], G.choice, PCOL[w]);
 }
-function toMenu() { G.game = null; go('menu'); menuSelect(G.menu >= 3 ? 0 : G.menu); }
+function toMenu() { G.game = null; go('menu'); menuSelect(G.menu >= 4 ? 0 : G.menu); }
 const PAUSE_ITEMS = ['继续', '回到封面'];
 function drawPause() {
   ctx.fillStyle = C.wall; ctx.fillRect(0, 0, W, H);  // 不透明：暂停时不能露出私密画面

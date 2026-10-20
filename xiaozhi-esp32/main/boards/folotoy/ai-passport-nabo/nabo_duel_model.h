@@ -41,7 +41,7 @@ typedef enum {
 } nd_scene_t;
 
 typedef enum { ND_PH_WAIT, ND_PH_READY, ND_PH_STANDOFF, ND_PH_GO, ND_PH_REVEAL } nd_phase_t;
-typedef enum { ND_COVER_ONLINE, ND_COVER_SOLO, ND_COVER_BO, ND_COVER_FAKE, ND_COVER_AI, ND_COVER_COUNT } nd_cover_t;
+typedef enum { ND_COVER_ONLINE, ND_COVER_SOLO, ND_COVER_BO, ND_COVER_FAKE, ND_COVER_AI, ND_COVER_BACK, ND_COVER_COUNT } nd_cover_t;
 
 // Packet types (wire byte values).
 typedef enum {
@@ -139,7 +139,7 @@ typedef struct {
     uint16_t ai_r;
 } nd_attempt_t;
 
-typedef struct { uint16_t mean, sd, foul_permille; const char *name; } nd_ai_t;
+typedef struct { uint16_t mean, sd, foul_permille; } nd_ai_t;   // practice NABO: 新手 / 老手 / 神枪
 extern const nd_ai_t ND_AI[3];
 
 typedef struct {
@@ -195,6 +195,7 @@ typedef struct {
     uint32_t toast_until;
     nd_invite_t invite, invited;
     nd_left_t left_why;
+    bool exit_req;                  // "back to the table" chosen on the cover
 } nd_t;
 
 void nd_init(nd_t *d, const uint8_t mac[ND_MAC_LEN], uint32_t entropy, const nd_settings_t *set, uint16_t best,
