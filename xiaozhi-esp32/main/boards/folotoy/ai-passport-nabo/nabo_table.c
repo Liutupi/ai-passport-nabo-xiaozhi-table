@@ -249,6 +249,7 @@ static bool resize_sprite_buf(size_t need)
         b = heap_caps_calloc(1, need, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
         if (!b) {
             s_sprite_buf = heap_caps_calloc(1, s_sprite_need, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+            if (!s_sprite_buf) s_sprite_need = 0;   // the player then refuses buffered animations
             return false;
         }
     } else {
@@ -287,6 +288,7 @@ static void duel_enter(void)
     nabo_duel_t *u = heap_caps_calloc(1, sizeof(*u), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (!u || !resize_sprite_buf(need)) {
         heap_caps_free(u);
+        use_sprite_pack(&s_st->pack, s_sprite_buf, s_sprite_need);   // the buffer may have moved
         ESP_LOGE(TAG, "duel: not enough memory (free=%u largest=%u need=%u)", (unsigned)esp_get_free_heap_size(),
                  (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT), (unsigned)need);
         return;
