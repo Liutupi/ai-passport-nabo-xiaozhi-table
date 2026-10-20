@@ -2,6 +2,8 @@
 
 ## 当前交接状态
 
+**开发中：v1.7.0 NABO 对决**（`duel` 分支），代码与宿主测试完成，尚未真机构建，见下文“NABO 对决”一节。以下为最近一次发布的状态。
+
 当前版本为 **v1.6.0 谁是卧底版**：复用现成实机验证应用，3,975,984 字节，SHA256 `de9ff6def9c9e49464d77607aca6a53d4e162f8da387dc2e0f379106101d7327`。资源 SHA256 `b7230904f977912bdb4b31b21bb47ad105c7e49e4a2f7a162664ba8c43107785`，bootloader、分区表和资源与 v1.5.0 相同。新增 `nabo_table_uc.c`（3–8 人规则）、`nabo_table_scene_uc.c`（画面）和 `nabo_uc_words.c/.h`（264 组词库），原型同步至 `game-art/table/prototype/undercover.js`；词库来源为 `game-art/table/undercover/words.txt`，生成器 `tools/generate_uc_words.py`。本版删除节奏回声固件与相关测试，勿将历史文档中的节奏入口当作本版功能。
 
 **屏幕争用修复：** `NaboDisplay::BeginDirectDraw()` 设置 `panel_borrowed`；LVGL flush 在牌桌持有面板期间只回报完成。仅暂停 LVGL 刷新定时器不够，因为配网状态变更会重新唤醒刷新。不要移除此保护。实机 5/8 人完整流程及 10 轮牌桌进出压力测试已通过，验证范围见 `docs/VALIDATION.md` 和 `validation/v1.6.0.json`；现成镜像与日后干净构建必须分别记录，不能静默替换。
@@ -48,6 +50,10 @@ b18f915d0295181609b225b475511e1e8a5e60d950b2390fc33191e7c0278d40
 | nabo_rhythm_play.c | 音频 worker 与 LVGL 之间的歌曲时钟锚点、音效队列、延迟补偿 |
 | nabo_rhythm_ui.c / nabo_rhythm_stage.c | 选关/结算与演奏画面；对象只在程序打开时存在 |
 | nabo_*_font_*.c | 由 tools/generate_fonts.py 生成；新增中文界面文字后重新生成，字形不足会显示缺字 |
+| nabo_duel_model.c/.h | NABO 对决规则与联机协议（大厅、邀请、对时、局、判定、暂停、掉线、线格式），纯逻辑，与 `game-art/duel/prototype/duel_model.js` 逐毫秒对拍（test_duel.py） |
+| nabo_duel.c/.h | 运行时胶水：带时间戳的按键/收包按时间排进模型节拍（模型滞后 30 ms），拔枪闸门（屏幕反色前不让模型越过 go_at），音效位，PING 打戳与 PONG 快速应答的纯函数 |
+| nabo_link.cc/.h | ESP-NOW：停/启小智 Wi-Fi 站点、固定信道 1、收包回调里直接回 PONG、发 PING 时写入发送时刻 |
+| nabo_table_scene_duel.c | 对决画面（黄昏小镇 NTG_DUSK 背景 + 对手 NABO + 文字），时间用模型时间 |
 
 核心层只通过 `Board::HandleRecognizedSpeech()` 可选接口调用板型，不能在 `application.cc` 中硬编码 NABO 程序关键词。STT 回调通过 `Application::Schedule()` 在主任务显示文字并处理打开指令。其他板型默认不处理该接口。
 
@@ -84,6 +90,25 @@ b18f915d0295181609b225b475511e1e8a5e60d950b2390fc33191e7c0278d40
 **素材流程：** `game-art/table/`：起始图 → 图生视频（`art/video/`）→ `game-art/table/tools/clip_to_sprites.py` 抽帧抠图 → `tools/generate_table_sprites.py` 打包。改了素材要重新构建资源镜像，并用 upgrade（写应用+资源）刷写。
 
 **画面速度：** 平时每帧 1.5–6.5 ms，28–30 fps；换画面时整屏重画 55–180 ms，会有一下停顿，后续可优化。不要把渲染代码放进 IRAM（深潜试过，开机即 abort 循环）。
+
+## NABO 对决（v1.7.0 开发中）
+
+**入口：** 牌桌封面第四项「对决 · 联机」。牌桌模型只抛出 `NT_EV_DUEL`；`nabo_table.c` 进入对决模式：分配 `nabo_duel_t`（约 5 KB）、把精灵缓冲换成对决包需要的 21.7 KB（牌桌的小缓冲先释放）、共用的精灵播放器指向 `duel_sprites.bin`、启动 ESP-NOW。对决封面「返回牌桌」置 `exit_req`，任务里 `duel_leave()` 全部还原。牌桌关闭时任务退出前也会调用 `duel_leave()`。
+
+**不要改动的设计：**
+- **拔枪靠硬件反色。** go_at 到达时 esp_timer 叫醒任务，任务先发 INVOFF（面板本来就靠 INVON 显示正常颜色），再 `ndu_flipped()` 记下时刻；反应时间从这一刻算起。反色前的按键在胶水层改到 go_at − 1，必然算抢跑。不要改成画一帧白屏（整屏重画 55–180 ms，两台不一致）。
+- **对时不经过模型节拍。** 房主模型发的 PING 由 `nabo_link_send` 在发出瞬间改写 t1；客人的 PING 在收包回调里由 `ndu_ping_reply` 立刻回 PONG，不交给模型。若把 PONG 改回由模型回复，帧与 30 ms 滞后会让偏差错几十毫秒。
+- **模型滞后 30 ms。** 按键时间戳来自按键回调，经主任务 Schedule 才到牌桌环形队列；滞后保证它们按自己的时间进入模型。来得更晚的输入被推到下一毫秒。
+- **Wi-Fi：** `WifiManager::StopStation()` 只 `esp_wifi_stop` 不反初始化，ESP-NOW 再 `esp_wifi_start` 用 STA 接口；退出时 `esp_wifi_stop` 后 `StartStation()`。期间的断开/连上事件由 `application.cc` 记录，离开本地程序时照常激活。配网模式下不停热点，走 AP 接口（未验证）。
+- 对决里 UP/DOWN 长按 1 秒暂停（由模型判断），所以 `nabo_table_on_cover()` 在对决中返回 false，长按上键不会退回小智。
+
+**协议与规则改动：** 先改 `game-art/duel/prototype/duel_model.js`，再 `node tests/duel_host/record_duel_golden.js` 重录轨迹，`test_duel.py` 必须逐毫秒一致。
+
+**NVS：** `nabo_ui` 命名空间新增 `duel_bo`、`duel_fake`、`duel_ai`、`duel_best`（u16 ms），只在变化时写。
+
+**串口：** `>apps.open=duel` 直达对决封面；`>table.status` 的 `duel` 段有场景、阶段、比分、双方结果、往返/偏差、收发计数、是否反色；`>table.duel.test` 开启测试模式（不写纪录和设置）；`>table.press=up|down|ok` 在对决里变成一次按下+松开。
+
+**待真机验证：** 构建大小、两台联机（对时偏差、拔枪同时性）、丢包环境、实体按键手感、声音、退出对决后 Wi-Fi 重连与小智对话、对决打开时的空闲堆（预计比牌桌少约 21 KB）、10 轮进出。
 
 ## 诊断与回归
 

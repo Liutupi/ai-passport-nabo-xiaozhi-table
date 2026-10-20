@@ -33,6 +33,10 @@ python scripts/build.py folotoy/ai-passport-nabo --name ai-passport-nabo --langu
 
 NABO RLE、平台/角色精灵、跳跃 PCM、牌桌精灵包 `table_assets/table_sprites.bin`、中文字体均在板型目录，干净检出即可构建，不需要作者的旧 Muse 项目、私有素材路径或移植脚本。
 
+**对决素材：** `table_assets/duel_sprites.bin` 和 `nabo_duel_sprite_ids.h` 由 `python3 tools/generate_duel_sprites.py` 生成，输入是 `game-art/duel/sprites/large/<动作>/NN.png`（从 `game-art/duel/art/` 验收图集切出的 256×256 透明帧）。按 0.85 倍缩放、每个动作 64 色、第 0 帧关键帧其余差分，逐帧解码回来核对；总大小超过 500 KB 会报错。同时生成原型用的 `game-art/duel/prototype/assets/nabo_duel_sprites.js`（解码后的 RGB565 帧）。资源分区 3 MB，v1.6.0 用了 2,537,295 字节，加上对决约 3.03 MB。
+
+**字体：** `python tools/generate_fonts.py --converter lv_font_conv --sans SourceHanSansCN-Medium.otf --archivo ArchivoBlack-Regular.ttf --mono SpaceMono-Bold.ttf`（lv_font_conv 1.5.3；源字体 SHA256 记在 `game-art/fonts.json`：思源黑体取自 adobe-fonts/source-han-sans 的 release 分支 `SubsetOTF/CN/`，另两个取自 google/fonts 的 `ofl/`）。
+
 **牌桌素材：** `table_assets/table_sprites.bin` 和 `nabo_table_sprite_ids.h` 由 `python3 tools/generate_table_sprites.py` 生成，输入是 `game-art/table/sprites/`（先运行 `python3 game-art/table/tools/clip_to_sprites.py` 从 `game-art/table/art/video/` 的图生视频抽帧生成，需要 ffmpeg）。每个动作一套 64 色调色板；大图每帧都是关键帧，直接从 Flash 解码；小图第 0 帧是关键帧，之后是差分帧。脚本会逐帧解码回来比对像素和颜色误差。构建时 CMake 通过 `DEFAULT_ASSETS_EXTRA_FILES` 把 `table_assets/` 打进 `generated_assets.bin`，运行时用 `Assets::GetAssetData("table_sprites.bin")` 原地读取。需要 Pillow、NumPy。
 
 **字体：** 新增界面中文后重新生成。源字体不入库，SHA256 记录在 `game-art/fonts.json`：
