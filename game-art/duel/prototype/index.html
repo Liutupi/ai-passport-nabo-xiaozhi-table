@@ -1,0 +1,499 @@
+<meta charset="utf-8">
+<title>NABO 对决</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rye&family=Noto+Sans+SC:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap">
+<style>
+/* 布局：上方两台工牌并排（窄屏上下叠），像隔街对峙；下方三栏是“空中”的链路参数、实时对时数据和包日志。整体是黄昏小镇的单一深色调。 */
+:root {
+  --night: #120b0d;      /* 页面底色：入夜的砖红黑 */
+  --panel: #1d1316;
+  --line: #3a272a;
+  --fg: #f1e4d6;
+  --muted: #a88f84;
+  --ember: #f08a3c;      /* 房主 / 玩家 1 */
+  --sky: #45b4f0;        /* 客人 / 玩家 2 */
+  --brass: #d8b25a;
+  --bad: #e2574c;
+  --display: "Rye", "Rockwell", Georgia, serif;
+  --body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mono: "Space Mono", ui-monospace, Menlo, monospace;
+  --cw: clamp(210px, 30vw, 300px);
+  color-scheme: dark;
+}
+html, body { background: var(--night); color: var(--fg); }
+body { font-family: var(--body); font-size: 14px; line-height: 1.6; }
+.wrap { max-width: 1100px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 48px; display: grid; gap: 26px; }
+header { display: grid; gap: 4px; }
+header h1 { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; font-weight: 400; text-wrap: balance; }
+header h1 .en { font-family: var(--display); font-size: 34px; letter-spacing: .04em; color: var(--brass); }
+header h1 .zh { font-weight: 900; font-size: 22px; letter-spacing: .25em; }
+header p { margin: 0; color: var(--muted); max-width: 70ch; }
+.stage { display: flex; flex-wrap: wrap; gap: 20px 36px; justify-content: center; align-items: flex-start; }
+.badge { display: grid; gap: 10px; justify-items: center; }
+.badge .tag { font: 700 12px var(--mono); letter-spacing: .12em; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.badge .tag i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.device {
+  display: flex; align-items: center; gap: 10px; max-width: 100%;
+  padding: 16px 10px 16px 16px; border-radius: 28px;
+  background: linear-gradient(160deg, #2a1d1c, #140d0d);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 28px 50px -22px #000;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.screen { line-height: 0; border-radius: 6px; overflow: hidden; box-shadow: 0 0 0 3px #070405, 0 0 0 4px #3b2a28; }
+.screen canvas { display: block; width: var(--cw); height: calc(var(--cw) * 4 / 3); }
+.screen canvas.inv { filter: invert(1); }
+.keys { display: flex; flex-direction: column; gap: 10px; }
+.key { width: 38px; height: 48px; border-radius: 19px; border: 1px solid #4a3532; background: linear-gradient(#33241f, #1c1311); color: var(--muted); font: 700 10px var(--mono); cursor: pointer; padding: 0; box-shadow: 0 2px 0 #090506; }
+.key.ok { height: 62px; color: var(--brass); }
+.key.down { transform: translateY(2px); box-shadow: none; color: var(--fg); background: #160e0c; }
+.key:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.hint { font: 400 11px var(--mono); color: var(--muted); }
+kbd { font: 700 11px var(--mono); padding: 0 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; color: var(--fg); background: var(--panel); }
+.vs { align-self: center; font-family: var(--display); font-size: 26px; color: var(--line); }
+.panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 22px; }
+.panel section { display: grid; gap: 10px; align-content: start; min-width: 0; padding-top: 14px; border-top: 1px solid var(--line); }
+.panel h2 { margin: 0; font: 700 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+label.slider { display: grid; grid-template-columns: 5.5em 1fr 4.5em; gap: 10px; align-items: center; font-size: 13px; }
+label.slider output { font: 400 12px var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; accent-color: var(--ember); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font: 700 12px var(--body); padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; }
+.chip[aria-pressed="true"] { border-color: var(--brass); color: var(--brass); }
+.chip.cut[aria-pressed="true"] { border-color: var(--bad); color: var(--bad); }
+dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; font-size: 13px; }
+dt { color: var(--muted); }
+dd { margin: 0; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
+.log { font: 400 11px/1.55 var(--mono); color: var(--muted); max-height: 240px; overflow: auto; margin: 0; white-space: pre; font-variant-numeric: tabular-nums; }
+.log b { color: var(--fg); font-weight: 700; }
+.note { color: var(--muted); font-size: 12.5px; margin: 0; }
+@media (max-width: 720px) { .vs { display: none; } }
+@media (prefers-reduced-motion: reduce) { .key.down { transform: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1><span class="en">DUEL</span><span class="zh">NABO 对决</span></h1>
+    <p>两台工牌的联机原型。左边 A、右边 B，中间是模拟的 ESP-NOW 空中链路。屏幕整屏反色、出现“拔！”时按 OK，比的是各自测得的反应时间，网络延迟不影响胜负。B 默认由机器人操作，关掉就能两个人一起玩。</p>
+  </header>
+
+  <div class="stage">
+    <div class="badge" id="badgeA">
+      <div class="tag"><i style="background:var(--ember)"></i>工牌 A · NABO-3F2A</div>
+      <div class="device">
+        <div class="screen"><canvas width="240" height="320" id="cvA"></canvas></div>
+        <div class="keys"><button class="key" data-b="A" data-k="up">UP</button><button class="key ok" data-b="A" data-k="ok">OK</button><button class="key" data-b="A" data-k="down">DN</button></div>
+      </div>
+      <div class="hint"><kbd>W</kbd> 上 · <kbd>D</kbd> OK · <kbd>S</kbd> 下</div>
+    </div>
+    <div class="vs">VS</div>
+    <div class="badge" id="badgeB">
+      <div class="tag"><i style="background:var(--sky)"></i>工牌 B · NABO-1B07</div>
+      <div class="device">
+        <div class="screen"><canvas width="240" height="320" id="cvB"></canvas></div>
+        <div class="keys"><button class="key" data-b="B" data-k="up">UP</button><button class="key ok" data-b="B" data-k="ok">OK</button><button class="key" data-b="B" data-k="down">DN</button></div>
+      </div>
+      <div class="hint"><kbd>↑</kbd> 上 · <kbd>Enter</kbd> OK · <kbd>↓</kbd> 下</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <section>
+      <h2>空中链路</h2>
+      <label class="slider">延迟<input type="range" id="lat" min="1" max="120" value="3"><output id="latO">3 ms</output></label>
+      <label class="slider">抖动<input type="range" id="jit" min="0" max="60" value="2"><output id="jitO">±2 ms</output></label>
+      <label class="slider">丢包<input type="range" id="loss" min="0" max="60" value="0"><output id="lossO">0 %</output></label>
+      <div class="row">
+        <button class="chip" id="botB" aria-pressed="true">B 机器人</button>
+        <button class="chip" id="hasC" aria-pressed="true">附近有 C</button>
+        <button class="chip" id="sound" aria-pressed="false">A 的声音</button>
+      </div>
+      <div class="row">
+        <button class="chip cut" id="cutA" aria-pressed="false">拔掉 A 的天线</button>
+        <button class="chip cut" id="cutB" aria-pressed="false">拔掉 B 的天线</button>
+      </div>
+      <p class="note">B 的本机时钟比 A 快 987,654 ms，还有 40 ppm 漂移，用来检验对时。C 是一台路过的空闲工牌，只在大厅里出现。</p>
+    </section>
+    <section>
+      <h2>实时</h2>
+      <dl>
+        <dt>A</dt><dd id="stA">—</dd>
+        <dt>B</dt><dd id="stB">—</dd>
+        <dt>对时偏差</dt><dd id="stOff">—</dd>
+        <dt>最短往返</dt><dd id="stRtt">—</dd>
+        <dt>拔枪时刻差</dt><dd id="stGo">—</dd>
+        <dt>包</dt><dd id="stPk">—</dd>
+      </dl>
+      <p class="note">拔枪时刻差是两台屏幕反色的真实时间差（全局时钟）。正常链路下应该在 ±2 ms 以内。</p>
+    </section>
+    <section>
+      <h2>包日志 <button class="chip" id="quiet" aria-pressed="true" style="margin-left:8px">隐藏 HELLO / BEAT / ACK</button></h2>
+      <pre class="log" id="log"></pre>
+    </section>
+  </div>
+</div>
+
+<script src="assets/nabo_placeholder.js"></script>
+<script src="duel_model.js"></script>
+<script src="sim.js"></script>
+<script>
+'use strict';
+const D = window.NaboDuel;
+const C = {
+  sky0: '#2a1838', sky1: '#5a2a3e', sky2: '#a8443c', sky3: '#e07a3a', sun: '#ffc46b',
+  town: '#1e1218', ground: '#7a4a2c', ground2: '#5c3620', dust: '#9a6a40',
+  ink: '#120b0d', fg: '#f6ead8', muted: '#c4a894', ember: '#f08a3c', sky: '#45b4f0', brass: '#d8b25a',
+  bad: '#e2574c', good: '#8edb5a', yellow: '#ffd23f', water: '#7fd0ff', shade: 'rgba(18,11,13,.72)',
+};
+const F_BODY = '"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
+const F_MONO = '"Space Mono",ui-monospace,Menlo,monospace';
+const F_DISP = '"Rye","Rockwell",Georgia,serif';
+
+// ---------- 模拟环境 ----------
+const air = new D.Air({ seed: 2026 });
+const A = new D.DuelBadge({ mac: 0x3F2A, entropy: (Math.random() * 2 ** 32) >>> 0 });
+const B = new D.DuelBadge({ mac: 0x1B07, entropy: (Math.random() * 2 ** 32) >>> 0 });
+const Cb = new D.DuelBadge({ mac: 0x08C5, entropy: 77 });
+const nA = air.add(A, { off: 0, rssi: -42 });
+const nB = air.add(B, { off: 987654, ppm: 40, rssi: -46, bot: D.makeBot({ mean: 285, sd: 45, foul: 0.08, seed: 99 }) });
+const nC = air.add(Cb, { off: -31337, rssi: -71, bot: D.makeBot({ mean: 330, sd: 50, seed: 5 }) });
+const botB = nB.bot;
+const pktLog = [];
+air.onPacket = (g, from, to, p) => {
+  pktLog.push({ g, from, to, p });
+  if (pktLog.length > 400) pktLog.shift();
+};
+const goTimes = { A: [], B: [] };
+
+// ---------- 精灵 ----------
+const SPR = {};
+for (const [size, anims] of Object.entries(window.NABO_SPRITES || {}))
+  for (const [key, sheet] of Object.entries(anims)) { const im = new Image(); im.src = sheet.img; SPR[size + '/' + key] = { sheet, im, size }; }
+const ANIM = { idle: 'large/idle_empty', enter: 'large/cover_in', smug: 'large/trophy', splashed: 'small/surprise', laugh: 'small/point_l', draw: 'small/slam', twitch: 'small/shake' };
+
+// ---------- 画面 ----------
+function mkView(cv) { return { cv, ctx: cv.getContext('2d'), anim: 'idle', since: 0 }; }
+const views = { A: mkView(document.getElementById('cvA')), B: mkView(document.getElementById('cvB')) };
+
+function text(ctx, s, x, y, o = {}) {
+  ctx.font = `${o.weight || 700} ${o.size || 14}px ${o.font || F_BODY}`;
+  ctx.textAlign = o.align || 'center'; ctx.textBaseline = o.base || 'alphabetic';
+  if (o.stroke) { ctx.lineJoin = 'round'; ctx.lineWidth = o.stroke; ctx.strokeStyle = o.strokeColor || C.ink; ctx.strokeText(s, x, y); }
+  ctx.fillStyle = o.color || C.fg; ctx.fillText(s, x, y);
+  return ctx.measureText(s).width;
+}
+function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+
+function drawBackdrop(ctx, t) {
+  // 横向纯色带：RGB565 上不做细渐变，避免色带
+  const bands = [C.sky0, C.sky1, C.sky2, C.sky3];
+  for (let i = 0; i < 4; i++) { ctx.fillStyle = bands[i]; ctx.fillRect(0, i * 48, 240, 48); }
+  ctx.fillStyle = C.sun; ctx.beginPath(); ctx.arc(176, 192, 26, Math.PI, 0); ctx.fill();
+  // 小镇剪影
+  ctx.fillStyle = C.town;
+  const town = [[0, 168, 34, 24], [30, 160, 26, 32], [56, 174, 20, 18], [150, 164, 30, 28], [182, 154, 18, 38], [200, 170, 40, 22]];
+  for (const [x, y, w, h] of town) ctx.fillRect(x, y, w, h);
+  ctx.fillRect(186, 146, 2, 8); ctx.fillRect(40, 152, 6, 8);
+  ctx.fillStyle = C.ground; ctx.fillRect(0, 192, 240, 128);
+  ctx.fillStyle = C.ground2; ctx.fillRect(0, 262, 240, 58);
+  ctx.fillStyle = C.dust;
+  for (let i = 0; i < 9; i++) ctx.fillRect((i * 53 + 17) % 240, 200 + (i * 29) % 56, 6, 2);
+}
+
+function nabo(v, ctx, t, anim, cx, footY, h, o = {}) {
+  if (anim !== v.anim) { v.anim = anim; v.since = t; }
+  const sp = SPR[ANIM[anim]];
+  if (!sp || !sp.im.complete || !sp.im.naturalWidth) { ctx.fillStyle = C.town; rr(ctx, cx - 40, footY - h, 80, h, 30); ctx.fill(); return; }
+  const { sheet, im, size } = sp, f = Math.floor((t - v.since) / 1000 * sheet.fps);
+  const i = sheet.loop ? f % sheet.n : Math.min(sheet.n - 1, f);
+  const k = h / (size === 'large' ? 150 : 72);
+  // 脚下的玩家色光圈 = 将来的头巾换色
+  if (o.color) { ctx.fillStyle = o.color; ctx.globalAlpha = .55; ctx.beginPath(); ctx.ellipse(cx, footY + 2, 46, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(im, i * sheet.w, 0, sheet.w, sheet.h, cx + sheet.ox * k + (o.dx || 0), footY + sheet.oy * k, sheet.w * k, sheet.h * k);
+}
+
+function pill(ctx, s, y, color) {
+  ctx.font = `700 13px ${F_BODY}`;
+  const w = ctx.measureText(s).width + 26;
+  ctx.fillStyle = C.shade; rr(ctx, 120 - w / 2, y - 18, w, 26, 13); ctx.fill();
+  text(ctx, s, 120, y, { size: 13, color: color || C.fg });
+}
+function sel(ctx, items, y0, cur, o = {}) {
+  const lh = o.lh || 30;
+  items.forEach((it, i) => {
+    const y = y0 + i * lh, on = i === cur;
+    if (on) { ctx.fillStyle = 'rgba(216,178,90,.18)'; rr(ctx, 20, y - 20, 200, lh - 4, 8); ctx.fill(); ctx.strokeStyle = C.brass; ctx.lineWidth = 1.5; ctx.stroke(); }
+    text(ctx, it[0], 34, y, { size: 15, align: 'left', color: on ? C.fg : C.muted, weight: on ? 700 : 400 });
+    if (it[1]) text(ctx, it[1], 206, y, { size: 13, align: 'right', color: on ? C.brass : C.muted, font: o.mono ? F_MONO : F_BODY });
+  });
+}
+const BO = { 1: '一局定胜负', 3: '三局两胜', 5: '五局三胜' };
+const fmt = r => !r ? '—' : r.k === 'hit' ? (r.r / 1000).toFixed(3) + ' s' : r.k === 'foul' ? '抢跑' : '没按';
+function colors(b) { const host = !b.match || b.match.solo || b.match.host; return host ? [C.ember, C.sky] : [C.sky, C.ember]; }
+
+function scoreBar(ctx, b) {
+  const m = b.match, [mc, oc] = colors(b);
+  ctx.fillStyle = C.shade; ctx.fillRect(0, 0, 240, 30);
+  ctx.fillStyle = mc; ctx.beginPath(); ctx.arc(14, 15, 5, 0, 7); ctx.fill();
+  text(ctx, '你', 26, 20, { size: 13, align: 'left' });
+  text(ctx, String(m.me), 50, 21, { size: 17, align: 'left', font: F_MONO });
+  ctx.fillStyle = oc; ctx.beginPath(); ctx.arc(226, 15, 5, 0, 7); ctx.fill();
+  const w = text(ctx, m.oppName, 214, 20, { size: 12, align: 'right', color: C.muted, font: F_MONO, weight: 400 });
+  text(ctx, String(m.opp), 214 - w - 8, 21, { size: 17, align: 'right', font: F_MONO });
+}
+
+function drawReveal(ctx, v, b, t, c) {
+  const m = b.match, [mc, oc] = colors(b), out = c.outcome;
+  const anim = out === 'win' ? 'splashed' : out === 'lose' ? (c.me.k === 'foul' ? 'laugh' : 'smug') : 'idle';
+  nabo(v, ctx, t, anim, 120, 236, 150, { color: oc });
+  if (out === 'win') {   // 对面被呲了一脸
+    ctx.fillStyle = C.water;
+    for (let i = 0; i < 14; i++) { const a = i * 2.4, d = 30 + (i * 13) % 34 + Math.min(20, (t - v.since) / 30); ctx.globalAlpha = .85; ctx.beginPath(); ctx.arc(120 + Math.cos(a) * d, 120 + Math.sin(a) * d * .8, 3 + i % 3, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  } else if (out === 'lose' && c.me.k !== 'foul') {   // 你的屏幕被呲了
+    ctx.fillStyle = C.water; ctx.globalAlpha = .5;
+    for (let i = 0; i < 9; i++) { const x = (i * 71 + 23) % 220 + 10, y = (i * 47) % 200 + 40 + Math.min(60, (t - v.since) / 25) * ((i % 3) + 1) / 3; ctx.beginPath(); ctx.ellipse(x, y, 10 + i % 4 * 4, 14 + i % 3 * 5, 0, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  const title = out === 'win' ? '你赢了这局' : out === 'lose' ? (c.me.k === 'foul' ? '你抢跑了' : '慢了一步') : (c.me.k === 'foul' ? '都太急了' : c.me.k === 'none' ? '都睡着了？' : '一模一样！');
+  text(ctx, title, 120, 270, { size: 24, weight: 900, color: out === 'win' ? C.yellow : out === 'lose' ? C.fg : C.brass, stroke: 5 });
+  ctx.fillStyle = C.shade; rr(ctx, 16, 280, 208, 34, 8); ctx.fill();
+  ctx.fillStyle = mc; ctx.fillRect(24, 290, 4, 14);
+  const lab = (x, y) => x.k === 'none' && y.k === 'hit' ? '慢了' : fmt(x);   // 对手先出手后被锁定的“没按”
+  text(ctx, '你 ' + lab(c.me, c.opp), 34, 302, { size: 13, align: 'left', font: F_MONO });
+  ctx.fillStyle = oc; ctx.fillRect(212, 290, 4, 14);
+  text(ctx, lab(c.opp, c.me) + ' 对手', 206, 302, { size: 13, align: 'right', font: F_MONO, color: C.muted });
+  if (c.newBest) pill(ctx, '新纪录 ' + fmt(c.me), 60, C.yellow);
+  if (out === 'replay') pill(ctx, m.attempt > 1 ? `重来（第 ${m.attempt} 次）` : '本局不计分', 60, C.brass);
+}
+
+function render(key, b, n) {
+  const v = views[key], ctx = v.ctx, t = air.local(n);
+  let inverted = false;
+  drawBackdrop(ctx, t);
+  const s = b.scene;
+  if (s === 'cover') {
+    nabo(v, ctx, t, 'idle', 120, 196, 120, {});
+    ctx.fillStyle = C.shade; ctx.fillRect(0, 0, 240, 320); ctx.globalAlpha = 1;
+    text(ctx, 'DUEL', 120, 58, { size: 40, font: F_DISP, weight: 400, color: C.brass, stroke: 6 });
+    text(ctx, '对 决', 120, 86, { size: 18, weight: 900 });
+    text(ctx, b.best ? '个人最快 ' + fmt({ k: 'hit', r: b.best }) : '屏幕反色时按 OK', 120, 108, { size: 11, color: C.muted, weight: 400, font: b.best ? F_MONO : F_BODY });
+    const names = { online: ['联机对战', ''], solo: ['单人练习', ''], bo: ['局数', BO[b.set.bo]], fake: ['虚晃', b.set.fake ? '开' : '关'], ai: ['练习对手', D.AI[b.set.ai].name] };
+    sel(ctx, b.coverItems().map(k => names[k]), 150, b.sel, { lh: 32 });
+  } else if (s === 'lobby' || s === 'inviting' || s === 'invited') {
+    ctx.fillStyle = C.shade; ctx.fillRect(0, 0, 240, 320);
+    // 雷达
+    const cx = 120, cy = 70;
+    ctx.strokeStyle = 'rgba(216,178,90,.35)'; ctx.lineWidth = 1;
+    for (const r of [18, 34, 50]) { ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke(); }
+    const a = (t / 900) % (Math.PI * 2);
+    ctx.strokeStyle = C.brass; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * 50, cy + Math.sin(a) * 50); ctx.stroke();
+    [...b.peers.values()].forEach((p, i) => { const pa = (p.mac % 360) / 57.3, pd = Math.max(10, Math.min(48, (-p.rssi - 30) * 1.2)); ctx.fillStyle = p.busy ? C.muted : C.yellow; ctx.beginPath(); ctx.arc(cx + Math.cos(pa) * pd, cy + Math.sin(pa) * pd, 3.5, 0, 7); ctx.fill(); });
+    ctx.fillStyle = C.ember; ctx.beginPath(); ctx.arc(cx, cy, 4, 0, 7); ctx.fill();
+    text(ctx, '找对手', 120, 146, { size: 17, weight: 900 });
+    const list = b.lobbyList();
+    if (list.length === 1) text(ctx, '附近还没有 NABO……', 120, 184, { size: 13, color: C.muted, weight: 400 });
+    const items = list.map(p => p.back ? ['返回', ''] : [p.name, p.ver !== D.VER ? '版本不同' : p.busy ? '对决中' : '▂▄▆█'.slice(0, Math.max(1, Math.min(4, Math.round((p.rssi + 90) / 12))))]);
+    sel(ctx, items, list.length === 1 ? 222 : 184, b.sel, { lh: 30, mono: true });
+    text(ctx, b.name + ' · OK 邀请', 120, 310, { size: 10, color: C.muted, weight: 400, font: F_MONO });
+    if (s === 'inviting' || s === 'invited') {
+      ctx.fillStyle = 'rgba(18,11,13,.88)'; ctx.fillRect(0, 0, 240, 320);
+      ctx.fillStyle = '#2a1c1c'; rr(ctx, 18, 92, 204, 150, 14); ctx.fill(); ctx.strokeStyle = C.brass; ctx.lineWidth = 1.5; ctx.stroke();
+      if (s === 'inviting') {
+        text(ctx, '等待对方接受', 120, 132, { size: 16, weight: 900 });
+        text(ctx, b.invite.name, 120, 160, { size: 14, font: F_MONO, color: C.brass });
+        text(ctx, '.'.repeat(1 + Math.floor(t / 400) % 3), 120, 184, { size: 22, color: C.muted });
+        text(ctx, 'UP 取消', 120, 224, { size: 12, color: C.muted, weight: 400 });
+      } else {
+        text(ctx, b.invited.name, 120, 128, { size: 14, font: F_MONO, color: C.yellow });
+        text(ctx, '邀你对决', 120, 156, { size: 20, weight: 900 });
+        text(ctx, `${BO[b.invited.bo]} · 虚晃${b.invited.fake ? '开' : '关'}`, 120, 182, { size: 12, color: C.muted, weight: 400 });
+        text(ctx, 'OK 接受    UP 拒绝', 120, 222, { size: 13, color: C.fg });
+      }
+    }
+  } else if (s === 'sync' || s === 'duel' || s === 'pause' || s === 'opppause' || s === 'end') {
+    const m = b.match, c = b.cur, [mc, oc] = colors(b);
+    const ph = s === 'duel' ? b.phase(t) : 'wait';
+    if (s === 'end') {
+      const won = m.me > m.opp;
+      nabo(v, ctx, t, won ? 'splashed' : 'smug', 120, 236, 150, { color: oc });
+      ctx.fillStyle = C.shade; ctx.fillRect(0, 0, 240, 320);
+      text(ctx, won ? '你赢下了这场' : `${m.oppName} 赢了`, 120, 70, { size: 22, weight: 900, color: won ? C.yellow : C.fg, stroke: 5 });
+      text(ctx, `${m.me} : ${m.opp}`, 120, 128, { size: 44, font: F_DISP, weight: 400, color: C.brass, stroke: 6 });
+      if (m.wantNext) text(ctx, '等对手决定……', 120, 200, { size: 14, color: C.muted, weight: 400 });
+      else sel(ctx, [['再来一场', ''], [m.solo ? '回封面' : '回大厅', '']], 196, b.sel, { lh: 34 });
+      if (m.oppNext && !m.wantNext) pill(ctx, '对手想再来一场', 290, C.yellow);
+    } else if (ph === 'wait') {
+      if (m.last) drawReveal(ctx, v, b, t, m.last);
+      else { nabo(v, ctx, t, 'idle', 120, 236, 150, { color: oc }); pill(ctx, m.solo ? '准备开始' : '对时中…', 280, C.muted); }
+    } else if (ph === 'reveal') {
+      drawReveal(ctx, v, b, t, c);
+    } else {
+      // 准备 / 对峙 / 拔
+      let anim = ph === 'ready' && t - c.ready < 750 ? 'enter' : 'idle', dx = 0;
+      if (c.opp && c.opp.k === 'hit') anim = 'draw';
+      let fake = null;
+      for (const f of c.fakes) if (t >= f.at && t < f.at + D.T.FAKE_SHOW) fake = f;
+      if (fake && fake.kind === 'twitch') dx = ((t >> 4) & 1) ? 3 : -3;
+      nabo(v, ctx, t, anim, 120, 236, 150, { color: oc, dx });
+      if (ph === 'ready') text(ctx, '准备……', 120, 282, { size: 22, weight: 900, stroke: 5 });
+      if (ph === 'ready') pill(ctx, `第 ${c.round} 局 · ${BO[m.bo]}`, 60, C.muted);
+      if (ph === 'standoff') {
+        text(ctx, '· · ·', 120, 282, { size: 18, color: C.muted, weight: 400 });
+        if (fake && fake.kind === 'text') text(ctx, '拔？', 120, 110, { size: 54, weight: 900, color: C.yellow, stroke: 7 });
+        if (fake && fake.kind === 'tumble') {
+          const p = (t - fake.at) / D.T.FAKE_SHOW, x = -20 + p * 280, y = 250 - Math.abs(Math.sin(p * 9)) * 14;
+          ctx.strokeStyle = '#c99a5a'; ctx.lineWidth = 2;
+          for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(x, y, 9 + i % 2 * 3, i + p * 12, i + 2.5 + p * 12); ctx.stroke(); }
+        }
+      }
+      if (ph === 'go') {
+        inverted = !c.me || c.me.k === 'hit';   // 固件：goAt 时发 INVON，本局结果出来时 INVOFF
+        text(ctx, '拔！', 120, 120, { size: 72, weight: 900, color: C.fg, stroke: 8 });
+      }
+      if (c.me) {
+        if (c.me.k === 'foul') { ctx.fillStyle = 'rgba(226,87,76,.35)'; ctx.fillRect(0, 0, 240, 320); text(ctx, '抢跑！', 120, 120, { size: 52, weight: 900, color: C.bad, stroke: 7 }); }
+        pill(ctx, (c.me.k === 'hit' ? '你 ' + fmt(c.me) : fmt(c.me)) + ' · 等对手…', 304, C.fg);
+      }
+    }
+    if (s !== 'end') scoreBar(ctx, b);
+    if (s === 'pause' || s === 'opppause') {
+      ctx.fillStyle = 'rgba(18,11,13,.86)'; ctx.fillRect(0, 0, 240, 320);
+      if (s === 'pause') { text(ctx, '暂停', 120, 130, { size: 24, weight: 900 }); sel(ctx, [['继续', ''], ['认输退出', '']], 182, b.sel, { lh: 34 }); }
+      else { text(ctx, '对手暂停了', 120, 150, { size: 20, weight: 900 }); text(ctx, '等对方回来……', 120, 182, { size: 13, color: C.muted, weight: 400 }); }
+    }
+  } else if (s === 'left') {
+    ctx.fillStyle = C.shade; ctx.fillRect(0, 0, 240, 320);
+    text(ctx, b.leftWhy === 'quit' ? '对手认输了' : b.leftWhy === 'bye' ? '对手离开了' : '信号断了', 120, 150, { size: 22, weight: 900 });
+    text(ctx, '回到大厅……', 120, 184, { size: 13, color: C.muted, weight: 400 });
+  }
+  if (b.toast) pill(ctx, b.toast.text, 300, C.yellow);
+  v.cv.classList.toggle('inv', inverted);
+}
+
+// ---------- 声音（只放工牌 A 的） ----------
+let ac = null, wind = null, beatAt = 0;
+function tone(f, d, type = 'sine', g = .2, at = 0) {
+  const o = ac.createOscillator(), e = ac.createGain(), t0 = ac.currentTime + at;
+  o.type = type; o.frequency.value = f; e.gain.setValueAtTime(g, t0); e.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+  o.connect(e).connect(ac.destination); o.start(t0); o.stop(t0 + d + .02);
+}
+function noise(d, f, q, g, sweep) {
+  const len = Math.floor(ac.sampleRate * d), buf = ac.createBuffer(1, len, ac.sampleRate), ch = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+  const s = ac.createBufferSource(), bp = ac.createBiquadFilter(), e = ac.createGain(), t0 = ac.currentTime;
+  s.buffer = buf; bp.type = 'bandpass'; bp.frequency.setValueAtTime(f, t0); if (sweep) bp.frequency.exponentialRampToValueAtTime(sweep, t0 + d); bp.Q.value = q;
+  e.gain.setValueAtTime(g, t0); e.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+  s.connect(bp).connect(e).connect(ac.destination); s.start();
+}
+function playFx(fx) {
+  if (!ac) return;
+  for (const f of fx) {
+    if (f.k === 'go') { tone(1760, .5, 'sine', .25); tone(2640, .35, 'sine', .12); }
+    else if (f.k === 'fake') noise(.06, 2400, 4, .25);
+    else if (f.k === 'shot') noise(.12, 3000, 1, .35, 800);
+    else if (f.k === 'foul') { tone(140, .35, 'square', .08); }
+    else if (f.k === 'win') { noise(.4, 1800, 2, .25, 400); [523, 659, 784].forEach((n, i) => tone(n, .22, 'triangle', .14, .25 + i * .12)); }
+    else if (f.k === 'lose') noise(.5, 1500, 2, .3, 300);
+    else if (f.k === 'tick' || f.k === 'invite' || f.k === 'ready') tone(f.k === 'invite' ? 1200 : 900, .06, 'square', .05);
+  }
+}
+function ambient(b, t) {
+  if (!ac || !wind) return;
+  const on = b.scene === 'duel' && b.phase(t) === 'standoff';
+  wind.gain.setTargetAtTime(on ? .06 : 0, ac.currentTime, .2);
+  if (on) {
+    const c = b.cur, left = (c.goAt - t) / c.delay, gap = 380 + 500 * Math.max(0, left);
+    if (t - beatAt > gap) { beatAt = t; tone(58, .16, 'sine', .35); }
+  }
+}
+document.getElementById('sound').addEventListener('click', e => {
+  const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+  e.currentTarget.setAttribute('aria-pressed', on);
+  if (on && !ac) {
+    ac = new AudioContext();
+    const len = ac.sampleRate * 2, buf = ac.createBuffer(1, len, ac.sampleRate), ch = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+    const s = ac.createBufferSource(), lp = ac.createBiquadFilter(); s.buffer = buf; s.loop = true; lp.type = 'lowpass'; lp.frequency.value = 500;
+    wind = ac.createGain(); wind.gain.value = 0; s.connect(lp).connect(wind).connect(ac.destination); s.start();
+  } else if (ac) { on ? ac.resume() : ac.suspend(); }
+});
+
+// ---------- 输入 ----------
+const KEYMAP = { KeyW: ['A', 'up'], KeyS: ['A', 'down'], KeyD: ['A', 'ok'], ArrowUp: ['B', 'up'], ArrowDown: ['B', 'down'], Enter: ['B', 'ok'] };
+const nodeOf = { A: nA, B: nB };
+function press(bk, k, down) {
+  const n = nodeOf[bk];
+  if (bk === 'B' && n.bot) return;
+  air.key(n, k, down);
+  const el = document.querySelector(`.key[data-b="${bk}"][data-k="${k}"]`); if (el) el.classList.toggle('down', down);
+}
+addEventListener('keydown', e => { const m = KEYMAP[e.code]; if (!m) return; e.preventDefault(); if (!e.repeat) press(m[0], m[1], true); });
+addEventListener('keyup', e => { const m = KEYMAP[e.code]; if (!m) return; e.preventDefault(); press(m[0], m[1], false); });
+for (const el of document.querySelectorAll('.key')) {
+  el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); press(el.dataset.b, el.dataset.k, true); });
+  el.addEventListener('pointerup', () => press(el.dataset.b, el.dataset.k, false));
+  el.addEventListener('pointercancel', () => press(el.dataset.b, el.dataset.k, false));
+}
+
+// ---------- 面板 ----------
+const $ = id => document.getElementById(id);
+function slider(id, out, f) { const el = $(id); const upd = () => { $(out).textContent = f(+el.value); }; el.addEventListener('input', upd); upd(); }
+slider('lat', 'latO', v => (air.net.latency = v) + ' ms');
+slider('jit', 'jitO', v => '±' + (air.net.jitter = v) + ' ms');
+slider('loss', 'lossO', v => ((air.net.loss = v / 100), v) + ' %');
+function toggle(id, f) { $(id).addEventListener('click', e => { const on = e.currentTarget.getAttribute('aria-pressed') !== 'true'; e.currentTarget.setAttribute('aria-pressed', on); f(on); }); }
+toggle('botB', on => { nB.bot = on ? botB : null; });
+toggle('hasC', on => { nC.antenna = on; });
+toggle('cutA', on => { nA.antenna = !on; });
+toggle('cutB', on => { nB.antenna = !on; });
+toggle('quiet', () => {});
+
+const SCN = { cover: '封面', lobby: '大厅', inviting: '邀请中', invited: '收到邀请', sync: '对时', duel: '对局', pause: '暂停', opppause: '对手暂停', end: '整场结束', left: '对手离开' };
+const PH = { wait: '等待', ready: '准备', standoff: '对峙', go: '拔！', reveal: '结果' };
+function status(b, n) {
+  let s = SCN[b.scene] || b.scene;
+  if (b.scene === 'duel') s += ' · ' + PH[b.phase(air.local(n))];
+  if (b.match) s += ` · ${b.match.me}:${b.match.opp}` + (b.match.solo ? ' 单人' : b.match.host ? ' 房主' : ' 客人');
+  return s;
+}
+const nm = mac => mac === 0x3F2A ? 'A' : mac === 0x1B07 ? 'B' : mac === 0x08C5 ? 'C' : '?';
+function panel() {
+  $('stA').textContent = status(A, nA);
+  $('stB').textContent = nB.bot ? status(B, nB) + ' · 机器人' : status(B, nB);
+  const host = A.match && !A.match.solo && A.match.host ? [A, nA, nB] : B.match && !B.match.solo && B.match.host ? [B, nB, nA] : null;
+  if (host && host[0].match.rtt !== null) {
+    const truth = air.local(host[2]) - air.local(host[1]);
+    $('stOff').textContent = `估计 ${host[0].match.offset.toLocaleString()} ms · 真实 ${truth.toLocaleString()} ms · 误差 ${host[0].match.offset - truth} ms`;
+    $('stRtt').textContent = host[0].match.rtt + ' ms';
+  } else { $('stOff').textContent = '—'; $('stRtt').textContent = '—'; }
+  const ga = goTimes.A, gb = goTimes.B;
+  $('stGo').textContent = ga.length && gb.length && Math.abs(ga[ga.length - 1] - gb[gb.length - 1]) < 6000 ? (gb[gb.length - 1] - ga[ga.length - 1]) + ' ms（B − A）' : '—';
+  $('stPk').textContent = `已发 ${air.stats.sent} · 丢失 ${air.stats.lost}`;
+  const quiet = $('quiet').getAttribute('aria-pressed') === 'true';
+  const rows = pktLog.filter(r => !quiet || !['HELLO', 'BEAT', 'ACK'].includes(r.p.type)).slice(-18).reverse();
+  $('log').innerHTML = rows.map(r => {
+    const p = r.p, extra = p.type === 'ROUND' ? ` 第${p.r}局 go=${p.go}` : p.type === 'RESULT' ? ` ${p.k}${p.k === 'hit' ? ' ' + p.ms + 'ms' : ''}` : p.type === 'PONG' ? ` t2=${p.t2}` : p.type === 'ACK' ? ` #${p.ack}` : p.type === 'INVITE' ? ` 抢${p.bo}` : '';
+    return `${String(r.g).padStart(7)}  ${nm(r.from)}→${nm(r.to)}  <b>${p.type}</b>${p.seq ? ' #' + p.seq : ''}${extra}`;
+  }).join('\n');
+}
+
+// ---------- 主循环 ----------
+let last = performance.now(), frame = 0;
+function loop(now) {
+  const dt = Math.min(100, Math.round(now - last)); last = now;
+  if (dt > 0) air.step(dt);
+  for (const [k, b] of [['A', A], ['B', B]]) {
+    const fx = b.fx.splice(0);
+    for (const f of fx) if (f.k === 'go') goTimes[k].push(air.g - (air.local(nodeOf[k]) - f.t));
+    if (k === 'A') { playFx(fx); ambient(A, air.local(nA)); }
+  }
+  Cb.fx.length = 0;
+  render('A', A, nA); render('B', B, nB);
+  if ((frame++ & 7) === 0) panel();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
